@@ -504,6 +504,12 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 	if d.HasChange("plan") {
 		prevPlan, currPlan := d.GetChange("plan")
+
+		if d.HasChange("power_status") {
+			d.Set("plan", prevPlan)
+			return diag.Errorf("cannot Upgrade Node Plan as the power status is changing. Apply again for the plan upgrade.")
+		}
+
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
 
 		if d.Get("status").(string) != "Powered off" {
