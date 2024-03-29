@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	//"time"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
@@ -506,8 +507,20 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		prevPlan, currPlan := d.GetChange("plan")
 
 		if d.HasChange("power_status") {
-			d.Set("plan", prevPlan)
-			return diag.Errorf("cannot Upgrade Node Plan as the power status is changing. Apply again for the plan upgrade.")
+			for {
+				nodeInfo, err := apiClient.GetNode(nodeId, project_id)
+				if err != nil {
+					log.Printf("[ERROR] Error getting Node Info inside Plan Upgrade. Error : %s", err)
+					return diag.FromErr(err)
+				}
+				data := nodeInfo["data"].(map[string]interface{})
+				if !(data["status"] == "Powering on" || data["status"] == "Powering off") {
+					break
+				}
+				log.Printf("[INFO] Waiting for Node to power off/on before upgrading the plan")
+				// Wait for 2 seconds before checking the status again (is Node powered on or off?)
+				time.Sleep(2 * time.Second)
+			}
 		}
 
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
