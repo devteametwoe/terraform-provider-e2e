@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
@@ -33,7 +34,7 @@ func ResourceBlockStorage() *schema.Resource {
 				ValidateFunc: validateSize,
 			},
 			"iops": {
-				Type:        schema.TypeInt,
+				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "IOPS of the block storage",
 			},
@@ -58,6 +59,11 @@ func ResourceBlockStorage() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "Status of the node",
+			},
+			"vm_id": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "ID of the VM to which the block storage is attached",
 			},
 		},
 
@@ -130,9 +136,9 @@ func resourceReadBlockStorage(ctx context.Context, d *schema.ResourceData, m int
 	log.Printf("[INFO] BLOCK STORAGE READ | BEFORE SETTING DATA")
 	data := blockStorage["data"].(map[string]interface{})
 	template := data["template"].(map[string]interface{})
-	resSize := convertIntoGB(data["size"].(float64))
+	// resSize := convertIntoGB(data["size"].(float64))
 	d.Set("name", data["name"].(string))
-	d.Set("size", resSize)
+	// d.Set("size", resSize)
 	d.Set("status", data["status"].(string))
 	d.Set("iops", template["TOTAL_IOPS_SEC"].(string))
 
@@ -146,8 +152,10 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 	blockStorageID := d.Id()
+	project_id := d.Get("project_id").(int)
+	location := d.Get("location").(string)
 
-	blockStorage, err := apiClient.GetBlockStorage(blockStorageID, d.Get("project_id").(int), d.Get("location").(string))
+	blockStorage, err := apiClient.GetBlockStorage(blockStorageID, project_id, location)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			d.SetId("")
@@ -155,43 +163,100 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 		}
 		return diag.Errorf("error finding Block Storage with ID %s: %s", blockStorageID, err.Error())
 	}
-	if d.HasChange("name") {
-		prevName, currName := d.GetChange("name")
-		log.Printf("[INFO] prevName %s, currName %s", prevName.(string), currName.(string))
-		d.Set("name", prevName)
-		return diag.Errorf("Renaming of Block Storage is not permitted!")
+
+	if d.HasChange("vm_id") {
+		prevVMID, currVMID := d.GetChange("vm_id")
+		prevName, _ := d.GetChange("name")
+		prevSize, _ := d.GetChange("size")
+		log.Printf("[INFO] prevVMID %v, currVMID %v", prevVMID, currVMID)
+
+		if d.Get("status") == "Attached" && prevVMID != "" {
+			vm_id, err := strconv.Atoi(prevVMID.(string))
+			if err != nil {
+				setPrevState(d, prevVMID, prevName, prevSize)
+				return diag.FromErr(err)
+			}
+			blockStorage := models.BlockStorageAttach{
+				VM_ID: vm_id,
+			}
+			res, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "detach", blockStorageID, project_id, location)
+			if err != nil {
+				setPrevState(d, prevVMID, prevName, prevSize)
+				return diag.FromErr(err)
+			}
+			d.Set("status", "Available")
+			log.Printf("[INFO] BLOCK STORAGE DETACH | RESPONSE BODY | %+v", res)
+
+		}
+		waitForDetach(apiClient, blockStorageID, project_id, location)
+
+		if currVMID != "" || currVMID != nil {
+			if d.Get("status") == "Available" {
+				vm_id, err := strconv.Atoi(currVMID.(string))
+				if err != nil {
+					setPrevState(d, "", prevName, prevSize)
+					return diag.FromErr(err)
+				}
+				blockStorage := models.BlockStorageAttach{
+					VM_ID: vm_id,
+				}
+				resBlockStorage, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "attach", blockStorageID, project_id, location)
+				if err != nil {
+					setPrevState(d, "", prevName, prevSize)
+					return diag.FromErr(err)
+				}
+
+				log.Printf("[INFO] BLOCK STORAGE DETACH | RESPONSE BODY | %+v", resBlockStorage)
+				if _, codeok := resBlockStorage["code"]; !codeok {
+					setPrevState(d, "", prevName, prevSize)
+					return diag.Errorf(resBlockStorage["message"].(string))
+				}
+				return diags
+			} else {
+				setPrevState(d, prevVMID, prevName, prevSize)
+				return diag.Errorf("block storage cannot be attached to a node unless it is in available state")
+			}
+		}
+
 	}
-	if d.HasChange("size") {
+
+	if d.HasChange("size") || d.HasChange("name") {
+		prevName, currName := d.GetChange("name")
+		prevSize, currSize := d.GetChange("size")
+		log.Printf("[INFO] prevSize %v, currSize %v", prevSize, currSize)
+
 		if d.Get("status") == "Attached" {
-			prevSize, currSize := d.GetChange("size")
 			tolerance := 1e-6
 			if currSize.(float64) > prevSize.(float64)+tolerance {
 				log.Printf("[INFO] BLOCK STORAGE UPGRADE STARTS")
 				vmID := blockStorage["data"].(map[string]interface{})["vm_detail"].(map[string]interface{})["vm_id"]
 				blockStorage := models.BlockStorageUpgrade{
-					Name:  d.Get("name").(string),
-					Size:  d.Get("size").(float64),
+					Name:  currName.(string),
+					Size:  currSize.(float64),
 					VM_ID: vmID.(float64),
 				}
 				log.Printf("[INFO] BlockStorage details: %+v %T", blockStorage, blockStorage.VM_ID)
-				resBlockStorage, err := apiClient.UpdateBlockStorageSize(&blockStorage, blockStorageID, d.Get("project_id").(int), d.Get("location").(string))
+				resBlockStorage, err := apiClient.UpdateBlockStorage(&blockStorage, blockStorageID, project_id, location)
 				if err != nil {
+					d.Set("size", prevSize)
+					d.Set("name", prevName)
 					return diag.FromErr(err)
 				}
-
 				log.Printf("[INFO] BLOCK STORAGE UPGRADE | RESPONSE BODY | %+v", resBlockStorage)
 				if _, codeok := resBlockStorage["code"]; !codeok {
+					d.Set("size", prevSize)
+					d.Set("name", prevName)
 					return diag.Errorf(resBlockStorage["message"].(string))
 				}
 				return diags
 			}
 			d.Set("size", prevSize)
-			return diag.Errorf("You cannot downgrade a Block Storage Volume")
+			d.Set("name", prevName)
+			return diag.Errorf("You cannot change the block storage size and name unless you are upgrading it")
 		} else {
-			prevSize, currSize := d.GetChange("size")
-			log.Printf("[INFO] prevSize %v, currSize %v", prevSize, currSize)
 			d.Set("size", prevSize)
-			return diag.Errorf("You cannot upgrade a block storage volume unless it is attached to a node")
+			d.Set("name", prevName)
+			return diag.Errorf("You cannot upgrade a block storage name or size unless it is attached to a node")
 		}
 	}
 	return resourceReadBlockStorage(ctx, d, m)
@@ -229,27 +294,9 @@ func resourceExistsBlockStorage(d *schema.ResourceData, m interface{}) (bool, er
 	return true, nil
 }
 
-func calculateIOPS(size float64) int {
-	switch size {
-	case 250:
-		return 5000
-	case 500:
-		return 10000
-	case 1000:
-		return 20000
-	case 2000:
-		return 40000
-	case 4000:
-		return 80000
-	case 8000:
-		return 120000
-	case 16000:
-		return 240000
-	case 24000:
-		return 360000
-	default:
-		return 0
-	}
+func calculateIOPS(size float64) string {
+	iops := size * 15
+	return strconv.Itoa(int(iops))
 }
 
 func convertIntoGB(bsSizeRes float64) float64 {
@@ -277,4 +324,27 @@ func validateSize(i interface{}, key string) (ws []string, es []error) {
 	}
 
 	return
+}
+
+func setPrevState(d *schema.ResourceData, prevVMID, prevName, prevSize interface{}) {
+	d.Set("vm_id", prevVMID)
+	d.Set("name", prevName)
+	d.Set("size", prevSize)
+}
+
+func waitForDetach(apiClient *client.Client, blockStorageID string, project_id int, location string) diag.Diagnostics {
+	for {
+		blockStorage, err := apiClient.GetBlockStorage(blockStorageID, project_id, location)
+		if err != nil {
+			log.Printf("[ERROR] Error getting block storage %s", err)
+			return diag.FromErr(err)
+		}
+		data := blockStorage["data"].(map[string]interface{})
+		if data["status"] == "Available" {
+			break
+		}
+		// Wait for 2 seconds before checking the status again (is Volume Detached?)
+		time.Sleep(2 * time.Second)
+	}
+	return nil
 }

@@ -203,6 +203,11 @@ func ResourceNode() *schema.Resource {
 				Default:     "Delhi",
 				Description: "Location where you want to create node.(ex - \"Delhi\", \"Mumbai\").",
 			},
+			"vm_id": {
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "The id of the VM.",
+			},
 		},
 
 		CreateContext: resourceCreateNode,
@@ -300,6 +305,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("status", data["status"].(string))
 	d.Set("disk", data["disk"].(string))
 	d.Set("price", data["price"].(string))
+	d.Set("vm_id", int(data["vm_id"].(float64)))
 	return diags
 }
 
@@ -336,6 +342,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	d.Set("private_ip_address", data["private_ip_address"].(string))
 	d.Set("is_bitninja_license_active", data["is_bitninja_license_active"].(bool))
 	d.Set("ssh_keys", copy_ssh_keys)
+	d.Set("vm_id", int(data["vm_id"].(float64)))
 
 	log.Printf("[info] node Resource read | after setting data")
 	if d.Get("status").(string) == "Running" {

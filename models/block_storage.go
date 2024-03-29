@@ -3,7 +3,7 @@ package models
 type BlockStorageCreate struct {
 	Name string  `json:"name"`
 	Size float64 `json:"size"`
-	IOPS int     `json:"iops"`
+	IOPS string  `json:"iops"`
 }
 
 type BlockStorageUpgrade struct {
@@ -33,4 +33,8 @@ type BlockStorage struct {
 	Template  ResponseTemplate       `json:"template"`
 	VMDetail  map[string]interface{} `json:"vm_detail"`
 	CreatedOn string                 `json:"created_on"`
+}
+
+type BlockStorageAttach struct {
+	VM_ID int `json:"vm_id"`
 }
