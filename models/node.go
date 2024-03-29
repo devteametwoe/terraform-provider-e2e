@@ -30,6 +30,11 @@ type NodeActionSSH struct {
 	SSH_KEYS []map[string]interface{} `json:"ssh_keys"`
 }
 
+type NodePlanUpgradeAction struct {
+	Plan  string `json:"plan"`
+	Image string `json:"image"`
+}
+
 type ResponseNodes struct {
 	Code    int    `json:"code"`
 	Data    []Node `json:"data"`

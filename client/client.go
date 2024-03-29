@@ -265,6 +265,37 @@ func (c *Client) UpdateNodeSSH(nodeId string, action string, ssh_keys []interfac
 	}
 	return jsonRes, err
 }
+func (c *Client) UpgradeNodePlan(nodeId string, plan string, image string, project_id string, location string) (interface{}, error) {
+	node_action := models.NodePlanUpgradeAction{
+		Plan:  plan,
+		Image: image,
+	}
+	nodeAction, _ := json.Marshal(node_action)
+
+	url := c.Api_endpoint + "nodes/upgrade/" + nodeId
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(nodeAction))
+	if err != nil {
+		log.Printf("[INFO] error inside upgrade node plan")
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
+	params.Add("location", location)
+	req.URL.RawQuery = params.Encode()
+	SetBasicHeaders(c.Auth_token, req)
+	response, err := c.HttpClient.Do(req)
+	log.Printf("CLIENT UPGRADE NODE PLAN | request = %+v", req)
+	log.Printf("CLIENT UPGRADE NODE PLAN | STATUS_CODE: %d, response = %+v", response.StatusCode, response)
+	if err == nil {
+		err = CheckResponseStatus(response)
+	}
+
+	if err != nil {
+		log.Printf("[INFO] error inside upgrade node plan")
+		return nil, err
+	}
+	return response, err
+}
 
 func (c *Client) DeleteNode(nodeId string, project_id string, location string) error {
 

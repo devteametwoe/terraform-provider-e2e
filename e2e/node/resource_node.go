@@ -331,7 +331,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 
 	d.Set("name", data["name"].(string))
 	d.Set("label", data["label"].(string))
-	// d.Set("plan", data["plan"].(string))
+	d.Set("plan", data["plan"].(string))
 	d.Set("created_at", data["created_at"].(string))
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
@@ -362,6 +362,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	nodeId := d.Id()
 	project_id := d.Get("project_id").(string)
+	location := d.Get("location").(string)
 	_, err := apiClient.GetNode(nodeId, project_id)
 	if err != nil {
 
@@ -495,19 +496,27 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		d.Set("location", prevLocation)
 		return diag.Errorf("location cannot be updated once you create the node.")
 	}
-	if d.HasChange("plan") {
-		prevPlan, currPlan := d.GetChange("plan")
-		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
-		d.Set("plan", prevPlan)
-		return diag.Errorf("currently plan cannot be updated once you create the node.")
-	}
 	if d.HasChange("image") {
 		prevImage, currImage := d.GetChange("image")
 		log.Printf("[INFO] prevImage %s, currImage %s", prevImage.(string), currImage.(string))
 		d.Set("image", prevImage.(string))
 		return diag.Errorf("Image cannot be updated once you create the node.")
 	}
+	if d.HasChange("plan") {
+		prevPlan, currPlan := d.GetChange("plan")
+		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
 
+		if d.Get("status").(string) != "Powered off" {
+			d.Set("plan", prevPlan)
+			return diag.Errorf("cannot Upgrade as the node is not powered off")
+		}
+		_, err = apiClient.UpgradeNodePlan(nodeId, d.Get("plan").(string), d.Get("image").(string), project_id, location)
+
+		if err != nil {
+			d.Set("plan", prevPlan)
+			return diag.FromErr(err)
+		}
+	}
 	return resourceReadNode(ctx, d, m)
 
 }
