@@ -549,62 +549,6 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
-	if d.HasChange("security_group_ids") {
-		vm_id := d.Get("vm_id").(float64)
-		security_groups_list := d.Get("security_group_ids").([]interface{})
-		if len(security_groups_list) <= 0 {
-			return diag.Errorf("Atleast one security groups must be attached to a node!")
-		}
-
-		oldSGData, newSGData := d.GetChange("security_group_ids")
-		oldSGList := oldSGData.([]interface{})
-		newSGList := newSGData.([]interface{})
-		sgMap := make(map[int]int)
-		for _, sgID := range newSGList {
-			sgMap[sgID.(int)] = 1
-		}
-		for _, sgID := range oldSGList {
-			if count, ok := sgMap[sgID.(int)]; ok {
-				sgMap[sgID.(int)] = count - 1
-			} else {
-				sgMap[sgID.(int)] = -1
-			}
-		}
-		var toBeAttached []int
-		for key, value := range sgMap {
-			if value == -1 {
-				log.Printf("----------HAVE TO DETACH THE SECURITY GROUP WITH ID %+v ------------------", key)
-				payload := models.UpdateSecurityGroups{
-					SecurityGroupList: []int{key},
-				}
-
-				response, err := apiClient.DetachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("region").(string))
-				if err != nil {
-					return diag.FromErr(err)
-				}
-				if _, codeOK := response["code"]; !codeOK {
-					return diag.Errorf(response["message"].(string))
-				}
-				continue
-			}
-			if value >= 1 {
-				toBeAttached = append(toBeAttached, key)
-			}
-		}
-		if len(toBeAttached) >= 1 {
-			payload := models.UpdateSecurityGroups{
-				SecurityGroupList: toBeAttached,
-			}
-			response, err := apiClient.AttachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("region").(string))
-			if err != nil {
-				return diag.FromErr(err)
-			}
-			if _, codeOK := response["code"]; !codeOK {
-				return diag.Errorf(response["message"].(string))
-			}
-		}
-	}
-
 	if d.HasChange("label") {
 		log.Printf("[INFO] nodeId = %v changed label = %s ", d.Id(), d.Get("label").(string))
 		_, err = apiClient.UpdateNode(nodeId, "label_rename", d.Get("label").(string), project_id)
