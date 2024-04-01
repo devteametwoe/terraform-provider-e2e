@@ -278,7 +278,10 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 				}
 			}
 		}
+	} else {
+		d.Set("security_group_ids", []int{defaultSG})
 	}
+
 	node := models.NodeCreate{
 		Name:              d.Get("name").(string),
 		Label:             d.Get("label").(string),
@@ -380,8 +383,6 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	if d.Get("status").(string) == "Powered off" {
 		d.Set("power_status", "power_off")
 	}
-
-	d.Set("vm_id", data["vm_id"].(float64))
 
 	return diags
 
@@ -494,7 +495,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if d.HasChange("security_group_ids") {
-		vm_id := d.Get("vm_id").(float64)
+		vm_id := d.Get("vm_id").(int)
 		security_groups_list := d.Get("security_group_ids").([]interface{})
 		if len(security_groups_list) <= 0 {
 			return diag.Errorf("Atleast one security groups must be attached to a node!")

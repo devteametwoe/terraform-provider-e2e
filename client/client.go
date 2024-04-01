@@ -728,7 +728,7 @@ func CheckResponseStatus(response *http.Response) error {
 	return nil
 }
 
-func (c *Client) DetachSecurityGroup(item *models.UpdateSecurityGroups, vm_id float64, project_id string, location string) (map[string]interface{}, error) {
+func (c *Client) DetachSecurityGroup(item *models.UpdateSecurityGroups, vm_id int, project_id string, location string) (map[string]interface{}, error) {
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
@@ -738,7 +738,7 @@ func (c *Client) DetachSecurityGroup(item *models.UpdateSecurityGroups, vm_id fl
 	if err != nil {
 		return nil, err
 	}
-	vmIDInString := strconv.FormatFloat(vm_id, 'f', -1, 64)
+	vmIDInString := strconv.Itoa(vm_id)
 	urlNode := c.Api_endpoint + "security_group/" + vmIDInString + "/detach/"
 	req, err := http.NewRequest("POST", urlNode, &buf)
 	if err != nil {
@@ -772,7 +772,7 @@ func (c *Client) DetachSecurityGroup(item *models.UpdateSecurityGroups, vm_id fl
 	return jsonRes, nil
 }
 
-func (c *Client) AttachSecurityGroup(item *models.UpdateSecurityGroups, vm_id float64, project_id string, location string) (map[string]interface{}, error) {
+func (c *Client) AttachSecurityGroup(item *models.UpdateSecurityGroups, vm_id int, project_id string, location string) (map[string]interface{}, error) {
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
@@ -782,7 +782,7 @@ func (c *Client) AttachSecurityGroup(item *models.UpdateSecurityGroups, vm_id fl
 	if err != nil {
 		return nil, err
 	}
-	vmIDInString := strconv.FormatFloat(vm_id, 'f', -1, 64)
+	vmIDInString := strconv.Itoa(vm_id)
 	urlNode := c.Api_endpoint + "security_group/" + vmIDInString + "/attach/"
 	req, err := http.NewRequest("POST", urlNode, &buf)
 	if err != nil {
