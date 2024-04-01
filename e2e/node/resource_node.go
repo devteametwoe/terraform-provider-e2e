@@ -124,6 +124,11 @@ func ResourceNode() *schema.Resource {
 					Description: "ID of the security group",
 				},
 			},
+			"default_sg": {
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "Default Security Group",
+			},
 			"ssh_keys": {
 				Type:        schema.TypeList,
 				Optional:    true,
@@ -244,23 +249,25 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
+	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("region").(string))
+	if err != nil {
+		return diag.Errorf("error finding security groups")
+	}
+	defaultSG := getDefaultSG(response)
+	d.Set("default_sg", defaultSG)
 
-	securityGroupsList := d.Get("security_group_ids")
-	security_group := 0 //Just a temporary value
-	if securityGroupsList != nil {
-		if securityGroups, ok := securityGroupsList.([]interface{}); ok && len(securityGroups) > 0 {
-			security_group = securityGroups[0].(int)
-			if len(securityGroups) > 1 {
-				log.Printf("Can only attach a single security group while node creation. Only the first Security Group will be attached")
-				d.Set("security_group_ids", []int{security_group})
+	security_group := defaultSG
+	if securityGroupsList, ok := d.GetOk("security_group_ids"); ok {
+		if securityGroupsList != nil {
+			if securityGroups, ok := securityGroupsList.([]interface{}); ok && len(securityGroups) > 0 {
+				security_group = securityGroups[0].(int)
+				if len(securityGroups) > 1 {
+					log.Printf("Can only attach a single security group while node creation. Only the first Security Group will be attached")
+					d.Set("security_group_ids", []int{security_group})
+				}
 			}
 		}
 	}
-
-	if security_group == 0 {
-		log.Printf("[INFO] Security groups is of invalid format")
-	}
-
 	node := models.NodeCreate{
 		Name:              d.Get("name").(string),
 		Label:             d.Get("label").(string),
@@ -552,4 +559,20 @@ func resourceExistsNode(d *schema.ResourceData, m interface{}) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func getDefaultSG(response map[string]interface{}) int {
+	var res int
+	data := response["data"].([]interface{})
+	for _, sg := range data {
+		sgMap := sg.(map[string]interface{})
+		defaultStatus := sgMap["is_default"].(bool)
+		if defaultStatus {
+			res = int(sgMap["id"].(float64))
+			break
+		}
+
+	}
+	log.Printf("------------Default security group is: %+v -------------", res)
+	return res
 }

@@ -750,3 +750,41 @@ func (c *Client) AttachSecurityGroup(item *models.UpdateSecurityGroups, vm_id fl
 	}
 	return jsonRes, nil
 }
+
+func (c *Client) GetSecurityGroupList(project_id string, location string) (map[string]interface{}, error) {
+
+	urlSecurityGroups := c.Api_endpoint + "security_group/"
+	req, err := http.NewRequest("GET", urlSecurityGroups, nil)
+	if err != nil {
+		return nil, err
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
+	params.Add("location", location)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		log.Printf("[INFO] error inside get security groups list")
+		return nil, err
+	}
+	log.Printf("[INFO] CLIENT SECURITY GROUPS LIST READ | response code %d", response.StatusCode)
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+	if err != nil {
+		log.Printf("[ERROR] CLIENT GET SECURITY GROUP | error when unmarshalling | %s", err)
+		return nil, err
+	}
+	return jsonRes, nil
+}
