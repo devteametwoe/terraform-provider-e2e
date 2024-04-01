@@ -853,3 +853,15 @@ func (c *Client) GetSecurityGroupList(project_id string, location string) (map[s
 	}
 	return jsonRes, nil
 }
+
+func CheckResponseCreatedStatus(response *http.Response) error {
+	if response.StatusCode != http.StatusCreated {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			return fmt.Errorf("got a non 201 status code: %v", response.StatusCode)
+		}
+		return fmt.Errorf("got a non 201 status code: %v - %s", response.StatusCode, respBody.String())
+	}
+	return nil
+}
