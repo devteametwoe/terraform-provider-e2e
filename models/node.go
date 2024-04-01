@@ -41,3 +41,7 @@ type Node struct {
 	RescueModeStatus string  `json:"rescue_mode_status"`
 	IsLocked         bool    `json:"is_locked"`
 }
+
+type UpdateSecurityGroups struct {
+	SecurityGroupList []int `json:"security_group_ids"`
+}

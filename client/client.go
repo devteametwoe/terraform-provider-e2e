@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
@@ -270,19 +271,14 @@ func (c *Client) GetSavedImages(location string, project_id string) (*models.Ima
 	}
 	return &res, nil
 }
-func (c *Client) GetSecurityGroups() (*models.SecurityGroupsResponse, error) {
+func (c *Client) GetSecurityGroups(project_id int, location string) (*models.SecurityGroupsResponse, error) {
 
 	urlSecurityGroups := c.Api_endpoint + "security_group/"
 	req, err := http.NewRequest("GET", urlSecurityGroups, nil)
 	if err != nil {
 		return nil, err
 	}
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		log.Printf("[INFO] error inside get security groups")
@@ -665,4 +661,92 @@ func CheckResponseStatus(response *http.Response) error {
 		return fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 	return nil
+}
+
+func (c *Client) DetachSecurityGroup(item *models.UpdateSecurityGroups, vm_id float64, project_id string, location string) (map[string]interface{}, error) {
+	buf := bytes.Buffer{}
+	err := json.NewEncoder(&buf).Encode(item)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("[INFO] CLIENT SECURITY GROUP DETACH | BEFORE REQUEST")
+	if err != nil {
+		return nil, err
+	}
+	vmIDInString := strconv.FormatFloat(vm_id, 'f', -1, 64)
+	urlNode := c.Api_endpoint + "security_group/" + vmIDInString + "/detach/"
+	req, err := http.NewRequest("POST", urlNode, &buf)
+	if err != nil {
+		return nil, err
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
+	params.Add("location", location)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+	if err != nil {
+		return nil, err
+	}
+	return jsonRes, nil
+}
+
+func (c *Client) AttachSecurityGroup(item *models.UpdateSecurityGroups, vm_id float64, project_id string, location string) (map[string]interface{}, error) {
+	buf := bytes.Buffer{}
+	err := json.NewEncoder(&buf).Encode(item)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("[INFO] CLIENT SECURITY GROUP ATTACH | BEFORE REQUEST")
+	if err != nil {
+		return nil, err
+	}
+	vmIDInString := strconv.FormatFloat(vm_id, 'f', -1, 64)
+	urlNode := c.Api_endpoint + "security_group/" + vmIDInString + "/attach/"
+	req, err := http.NewRequest("POST", urlNode, &buf)
+	if err != nil {
+		return nil, err
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
+	params.Add("location", location)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+	if err != nil {
+		return nil, err
+	}
+	return jsonRes, nil
 }
