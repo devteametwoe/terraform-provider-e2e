@@ -30,3 +30,17 @@ func RemoveExtraKeysLoadBalancer(buf *bytes.Buffer) (bytes.Buffer, error) {
 	newBuffer := bytes.NewBuffer(NewjsonData)
 	return *newBuffer, nil
 }
+
+func generateSSHKeyMap(keys []interface{}) []map[string]interface{} {
+	var result []map[string]interface{}
+
+	for i, key := range keys {
+		sshKeyMap := make(map[string]interface{})
+		label := fmt.Sprintf("ssh-key-%d", i+1)
+		sshKeyMap["label"] = label
+		sshKeyMap["ssh_key"] = key
+		result = append(result, sshKeyMap)
+	}
+
+	return result
+}

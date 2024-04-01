@@ -24,6 +24,17 @@ import (
 func DataSourceSshKeys() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
+			"project_id": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "The ID of the project associated with the ssh key",
+			},
+			"location": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "The location of the project associated with the ssh key",
+				Default:     "Delhi",
+			},
 			"ssh_key_list": {
 				Type:        schema.TypeList,
 				Computed:    true,
@@ -62,7 +73,7 @@ func dataSourceReadSshKeys(ctx context.Context, d *schema.ResourceData, m interf
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside sshkeys data source ")
-	Response, err := apiClient.GetSshKeys()
+	Response, err := apiClient.GetSshKeys(d.Get("location").(string), d.Get("project_id").(string))
 	if err != nil {
 		return diag.Errorf("error finding ssh keys")
 	}

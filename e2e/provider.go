@@ -49,6 +49,7 @@ func Provider() *schema.Provider {
 			"e2e_blockstorage": blockstorage.ResourceBlockStorage(),
 			"e2e_sfs":          sfs.ResourceSfs(),
 			"e2e_objectstore":  objectstore.ResourceObjectStore(),
+			"e2e_ssh_key":      ssh_key.ResourceSshKey(),
 			"e2e_kubernetes":   kubernetes.ResourceKubernetesService(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{

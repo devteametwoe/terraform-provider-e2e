@@ -24,10 +24,11 @@ import (
 func ResouceVpc() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
-			"region": {
+			"location": {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "Region should specified",
+				ForceNew:    true,
+				Description: "location should specified",
 			},
 			"vpc_name": {
 				Type:     schema.TypeString,
@@ -90,7 +91,7 @@ func ResourceReadVpc(ctx context.Context, d *schema.ResourceData, m interface{})
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside vpcs  resourcsource | read ")
-	Response, err := apiClient.GetVpc(d.Id(), d.Get("project_id").(string), d.Get("region").(string))
+	Response, err := apiClient.GetVpc(d.Id(), d.Get("project_id").(string), d.Get("location").(string))
 	if err != nil {
 		return diag.Errorf("error finding vpcs ")
 	}
@@ -114,13 +115,12 @@ func ResourceCreateVpc(ctx context.Context, d *schema.ResourceData, m interface{
 		VpcName:     d.Get("vpc_name").(string),
 		NetworkSize: d.Get("network_size").(float64),
 	}
-	resvpc, err := apiClient.CreateVpc(d.Get("region").(string), &newvpc, d.Get("project_id").(string))
+	resvpc, err := apiClient.CreateVpc(d.Get("location").(string), &newvpc, d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
-	if _, codeok := resvpc["code"]; !codeok {
-		return diag.Errorf(resvpc["message"].(string))
+	if code, ok := resvpc["code"].(int); !ok || code < 200 || code >= 300 {
+		return diag.Errorf("%+v: %+v | %+v", resvpc["code"], resvpc["message"], resvpc["errors"])
 	}
 
 	data := resvpc["data"].(map[string]interface{})
@@ -142,6 +142,21 @@ func ResourceCreateVpc(ctx context.Context, d *schema.ResourceData, m interface{
 
 func ResourceUpdateVpc(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
+
+	if d.HasChange("vpc_name") {
+		prevName, currName := d.GetChange("vpc_name")
+		log.Printf("[INFO] prev_vpc_name %s, curr_vpc_name %s", prevName.(string), currName.(string))
+		d.Set("vpc_name", prevName)
+		return diag.Errorf("vpc_name cannot be updated once you create the vpc.")
+	}
+
+	if d.HasChange("network_size") {
+		prevNetworkSize, currNetworkSize := d.GetChange("network_size")
+		log.Printf("[INFO] prev_network_size %v, curr_network_size %v", prevNetworkSize, currNetworkSize)
+		d.Set("network_size", prevNetworkSize)
+		return diag.Errorf("network size cannot be updated once you create the vpc.")
+	}
+
 	return diags
 }
 
@@ -151,7 +166,7 @@ func ResourceDeleteVpc(ctx context.Context, d *schema.ResourceData, m interface{
 	var diags diag.Diagnostics
 	vpcId := d.Id()
 
-	_, err := apiClient.DeleteVpc(vpcId, d.Get("project_id").(string), d.Get("region").(string))
+	_, err := apiClient.DeleteVpc(vpcId, d.Get("project_id").(string), d.Get("location").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}

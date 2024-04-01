@@ -1,4 +1,4 @@
-module  github.com/e2eterraformprovider/terraform-provider-e2e
+module github.com/e2eterraformprovider/terraform-provider-e2e
 
 go 1.18
 

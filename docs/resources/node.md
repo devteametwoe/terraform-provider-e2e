@@ -16,7 +16,7 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 ```hcl
  resource "e2e_node" "node1" {
 	name              = "node_name"
-    region            = "Delhi"
+    location          = "Delhi"
     plan              = "C2.12GB"
     image             = "CentOS-7"
     project_id        = <project_id:string>
@@ -29,8 +29,9 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 - `image` : (Required)(String) The name of the image you have selected format 
 - `name` : (Required)(String) The name of the resource, also acts as it's unique ID
 - `plan` : (Required)(String) name of the Plan
-- `region` : (Required) (String) Location where node is to be launched
+- `location` : (Optional) (String) Location where node is to be launched.
 - `project_id` (Required) (String) The ID of the project associated with the node
+- `region` : (Optional) (String) region
 - `label` : (Optional)(String) The name of the group . Default value is "default"
 - `backup` : (Optional)(Boolean) Tells you the state of your backups
 - `default_public_ip` : (Optional) (Boolean) Tells us the state of default public ip
@@ -41,7 +42,7 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 - `is_saved_image` : (Optional) (Boolean)  Creating node from a saved image when set true.
 - `reserve_ip` : (Optional) (String) Reserve ip as per  requirement
 - `saved_image_template_id` :  (Optional) (Number) template id  is required when you save the node from saved images.Give the template id of the saved image. Required when is_saved_image field is true
-- `ssh_keys` : (Optional) (List of String) Specify the ssh keys as required. Checkout ssh_keys datasource for listing ssh keys
+- `ssh_keys` : (Optional) (List of String) Specify the label of ssh keys as required. Checkout ssh_keys datasource for listing ssh keys
 - `vpc_id` : (Optional) (String) Vpc id as per requirement. Checkout vpcs_datasource for listing vpcs.
 
 ### Actions

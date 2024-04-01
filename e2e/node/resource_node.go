@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	//"time"
-
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	// "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/security_group"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
@@ -32,7 +31,6 @@ func ResourceNode() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				Description:  "The name of the resource, also acts as it's unique ID",
-				ForceNew:     true,
 				ValidateFunc: ValidateName,
 			},
 			"label": {
@@ -96,8 +94,8 @@ func ResourceNode() *schema.Resource {
 			"region": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Location where node is to be launched",
-				Default:     "Delhi",
+				Description: "region",
+				Default:     "ncr",
 			},
 			"reserve_ip": {
 				Type:        schema.TypeString,
@@ -132,7 +130,7 @@ func ResourceNode() *schema.Resource {
 			"ssh_keys": {
 				Type:        schema.TypeList,
 				Optional:    true,
-				Description: "Specify the ssh keys if required. Checkout ssh_keys datasource for listing ssh keys",
+				Description: "Specify the label of ssh keys if required. Checkout ssh_keys datasource for listing ssh keys",
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
 			"is_active": {
@@ -209,10 +207,16 @@ func ResourceNode() *schema.Resource {
 				ForceNew:    true,
 				Description: "The ID of the project associated with the node",
 			},
+			"location": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "Delhi",
+				Description: "Location where you want to create node.(ex - \"Delhi\", \"Mumbai\").",
+			},
 			"vm_id": {
-				Type:        schema.TypeFloat,
+				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "VM ID of the node",
+				Description: "The id of the VM.",
 			},
 		},
 
@@ -247,6 +251,13 @@ func ValidateName(v interface{}, k string) (ws []string, es []error) {
 func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
+	copy_ssh_keys := d.Get("ssh_keys")
+	new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), d.Get("project_id").(string))
+
+	if Err != nil {
+		return Err
+	}
+	d.Set("ssh_keys", new_SSH_keys)
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
 	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("region").(string))
@@ -298,7 +309,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 	project_id := d.Get("project_id").(string)
-	resnode, err := apiClient.NewNode(&node, project_id)
+	resnode, err := apiClient.NewNode(&node, project_id, d.Get("location").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -316,12 +327,14 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	nodeId := data["id"].(float64)
 	nodeId = math.Round(nodeId)
 	d.SetId(strconv.Itoa(int(math.Round(nodeId))))
+	d.Set("ssh_keys", copy_ssh_keys)
 	d.Set("is_active", data["is_active"].(bool))
 	d.Set("created_at", data["created_at"].(string))
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
 	d.Set("disk", data["disk"].(string))
 	d.Set("price", data["price"].(string))
+	d.Set("vm_id", int(data["vm_id"].(float64)))
 	return diags
 }
 
@@ -329,6 +342,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
+	copy_ssh_keys := d.Get("ssh_keys")
 	log.Printf("[info] inside node Resource read")
 	nodeId := d.Id()
 	project_id := d.Get("project_id").(string)
@@ -343,6 +357,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	}
 	log.Printf("[info] node Resource read | before setting data")
 	data := node["data"].(map[string]interface{})
+
 	d.Set("name", data["name"].(string))
 	d.Set("label", data["label"].(string))
 	d.Set("plan", data["plan"].(string))
@@ -355,6 +370,8 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	d.Set("public_ip_address", data["public_ip_address"].(string))
 	d.Set("private_ip_address", data["private_ip_address"].(string))
 	d.Set("is_bitninja_license_active", data["is_bitninja_license_active"].(bool))
+	d.Set("ssh_keys", copy_ssh_keys)
+	d.Set("vm_id", int(data["vm_id"].(float64)))
 
 	log.Printf("[info] node Resource read | after setting data")
 	if d.Get("status").(string) == "Running" {
@@ -376,11 +393,20 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	nodeId := d.Id()
 	project_id := d.Get("project_id").(string)
+	location := d.Get("location").(string)
 	_, err := apiClient.GetNode(nodeId, project_id)
 	if err != nil {
 
 		return diag.Errorf("error finding Item with ID %s", nodeId)
 
+	}
+
+	if d.HasChange("name") {
+		log.Printf("[INFO] ndoeId = %v, name = %s ", d.Id(), d.Get("name").(string))
+		_, err := apiClient.UpdateNode(nodeId, "rename", d.Get("name").(string), project_id)
+		if err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	if d.HasChange("power_status") {
@@ -523,6 +549,117 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
+	if d.HasChange("security_group_ids") {
+		vm_id := d.Get("vm_id").(float64)
+		security_groups_list := d.Get("security_group_ids").([]interface{})
+		if len(security_groups_list) <= 0 {
+			return diag.Errorf("Atleast one security groups must be attached to a node!")
+		}
+
+		oldSGData, newSGData := d.GetChange("security_group_ids")
+		oldSGList := oldSGData.([]interface{})
+		newSGList := newSGData.([]interface{})
+		sgMap := make(map[int]int)
+		for _, sgID := range newSGList {
+			sgMap[sgID.(int)] = 1
+		}
+		for _, sgID := range oldSGList {
+			if count, ok := sgMap[sgID.(int)]; ok {
+				sgMap[sgID.(int)] = count - 1
+			} else {
+				sgMap[sgID.(int)] = -1
+			}
+		}
+		var toBeAttached []int
+		for key, value := range sgMap {
+			if value == -1 {
+				log.Printf("----------HAVE TO DETACH THE SECURITY GROUP WITH ID %+v ------------------", key)
+				payload := models.UpdateSecurityGroups{
+					SecurityGroupList: []int{key},
+				}
+
+				response, err := apiClient.DetachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("region").(string))
+				if err != nil {
+					return diag.FromErr(err)
+				}
+				if _, codeOK := response["code"]; !codeOK {
+					return diag.Errorf(response["message"].(string))
+				}
+				continue
+			}
+			if value >= 1 {
+				toBeAttached = append(toBeAttached, key)
+			}
+		}
+		if len(toBeAttached) >= 1 {
+			payload := models.UpdateSecurityGroups{
+				SecurityGroupList: toBeAttached,
+			}
+			response, err := apiClient.AttachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("region").(string))
+			if err != nil {
+				return diag.FromErr(err)
+			}
+			if _, codeOK := response["code"]; !codeOK {
+				return diag.Errorf(response["message"].(string))
+			}
+		}
+	}
+
+	if d.HasChange("label") {
+		log.Printf("[INFO] nodeId = %v changed label = %s ", d.Id(), d.Get("label").(string))
+		_, err = apiClient.UpdateNode(nodeId, "label_rename", d.Get("label").(string), project_id)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	if d.HasChange("ssh_keys") {
+		prevSshKeys, currSshKeys := d.GetChange("ssh_keys")
+
+		log.Printf("[INFO] nodeId = %v changed ssh_keys = %s ", d.Id(), d.Get("ssh_keys"))
+		log.Printf("[INFO] type of ssh_keys data = %T", d.Get("ssh_keys"))
+
+		new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), project_id)
+		if Err != nil {
+			d.Set("ssh_keys", prevSshKeys)
+			return Err
+		}
+		d.Set("ssh_keys", new_SSH_keys)
+		_, err = apiClient.UpdateNodeSSH(nodeId, "add_ssh_keys", d.Get("ssh_keys").([]interface{}), project_id, d.Get("location").(string))
+		d.Set("ssh_keys", currSshKeys)
+		if err != nil {
+			d.Set("ssh_keys", prevSshKeys)
+			return diag.FromErr(err)
+		}
+
+	}
+	if d.HasChange("location") {
+		prevLocation, currLocation := d.GetChange("location")
+		log.Printf("[INFO] prevLocation %s, currLocation %s", prevLocation.(string), currLocation.(string))
+		d.Set("location", prevLocation)
+		return diag.Errorf("location cannot be updated once you create the node.")
+	}
+	if d.HasChange("image") {
+		prevImage, currImage := d.GetChange("image")
+		log.Printf("[INFO] prevImage %s, currImage %s", prevImage.(string), currImage.(string))
+		d.Set("image", prevImage.(string))
+		return diag.Errorf("Image cannot be updated once you create the node.")
+	}
+	if d.HasChange("plan") {
+		prevPlan, currPlan := d.GetChange("plan")
+		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
+
+		if d.Get("status").(string) != "Powered off" {
+			d.Set("plan", prevPlan)
+			return diag.Errorf("cannot Upgrade as the node is not powered off")
+		}
+		_, err = apiClient.UpgradeNodePlan(nodeId, d.Get("plan").(string), d.Get("image").(string), project_id, location)
+
+		if err != nil {
+			d.Set("plan", prevPlan)
+			return diag.FromErr(err)
+		}
+	}
 	return resourceReadNode(ctx, d, m)
 
 }
@@ -536,7 +673,7 @@ func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface
 	if node_status == "Saving" || node_status == "Creating" {
 		return diag.Errorf("Node in %s state", node_status)
 	}
-	err := apiClient.DeleteNode(nodeId, project_id)
+	err := apiClient.DeleteNode(nodeId, project_id, d.Get("location").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
