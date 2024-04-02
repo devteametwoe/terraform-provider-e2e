@@ -30,7 +30,7 @@ description: |-
 
 - `name` (String) The name of the block storage, also acts as its unique ID.
 - `project_id` (Number) ID of the associated project.
-- `size` (Number) Size of the block storage in GB. Choose from: { 250, 5000, 1000, 2000, 4000, 8000, 16000, 24000}.
+- `size` (Number) Size of the block storage in GB. Choose from: { 250, 500, 1000, 2000, 4000, 8000, 16000, 24000}.
 
 ### Optional
 
