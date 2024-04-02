@@ -744,14 +744,11 @@ func (c *Client) DetachSecurityGroup(item *models.UpdateSecurityGroups, vm_id in
 	if err != nil {
 		return nil, err
 	}
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	params.Add("project_id", project_id)
-	params.Add("location", location)
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	projectIDInt, error := strconv.Atoi(project_id)
+	if error != nil {
+		return nil, error
+	}
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, projectIDInt, location)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -788,14 +785,11 @@ func (c *Client) AttachSecurityGroup(item *models.UpdateSecurityGroups, vm_id in
 	if err != nil {
 		return nil, err
 	}
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	params.Add("project_id", project_id)
-	params.Add("location", location)
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	projectIDInt, error := strconv.Atoi(project_id)
+	if error != nil {
+		return nil, error
+	}
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, projectIDInt, location)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -823,14 +817,11 @@ func (c *Client) GetSecurityGroupList(project_id string, location string) (map[s
 	if err != nil {
 		return nil, err
 	}
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	params.Add("project_id", project_id)
-	params.Add("location", location)
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	projectIDInt, error := strconv.Atoi(project_id)
+	if error != nil {
+		return nil, error
+	}
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, projectIDInt, location)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		log.Printf("[INFO] error inside get security groups list")

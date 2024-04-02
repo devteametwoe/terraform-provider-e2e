@@ -383,6 +383,12 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	if d.Get("status").(string) == "Powered off" {
 		d.Set("power_status", "power_off")
 	}
+	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("region").(string))
+	if err != nil {
+		return diag.Errorf("error finding security groups")
+	}
+	defaultSG := getDefaultSG(response)
+	d.Set("default_sg", defaultSG)
 
 	return diags
 
@@ -495,13 +501,18 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if d.HasChange("security_group_ids") {
+		oldSGData, newSGData := d.GetChange("security_group_ids")
+		if d.Get("status").(string) != "Running" {
+			d.Set("security_group_ids", oldSGData)
+			return diag.Errorf("Can only update security groups once the node comes to the running state")
+		}
 		vm_id := d.Get("vm_id").(int)
 		security_groups_list := d.Get("security_group_ids").([]interface{})
+
 		if len(security_groups_list) <= 0 {
+			d.Set("security_group_ids", oldSGData)
 			return diag.Errorf("Atleast one security groups must be attached to a node!")
 		}
-
-		oldSGData, newSGData := d.GetChange("security_group_ids")
 		oldSGList := oldSGData.([]interface{})
 		newSGList := newSGData.([]interface{})
 		sgMap := make(map[int]int)
