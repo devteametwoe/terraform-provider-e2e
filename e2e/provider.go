@@ -4,6 +4,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/blockstorage"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/image"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/kubernetes"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/loadbalancer"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/objectstore"
@@ -48,11 +49,11 @@ func Provider() *schema.Provider {
 			"e2e_sfs":          sfs.ResourceSfs(),
 			"e2e_objectstore":  objectstore.ResourceObjectStore(),
 			"e2e_ssh_key":      ssh_key.ResourceSshKey(),
+			"e2e_kubernetes":   kubernetes.ResourceKubernetesService(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
-			"e2e_node":   node.DataSourceNode(),
-			"e2e_images": image.DataSourceImages(),
-			//"example_security_groups": security_group.DataSourceSecurityGroups(),
+			"e2e_node":         node.DataSourceNode(),
+			"e2e_images":       image.DataSourceImages(),
 			"e2e_ssh_keys":     ssh_key.DataSourceSshKeys(),
 			"e2e_vpcs":         vpc.DataSourceVpcs(),
 			"e2e_blockstorage": blockstorage.DataSourceBlockStorage(),
@@ -60,6 +61,7 @@ func Provider() *schema.Provider {
 			"e2e_reserve_ips":  reserve_ip.DataSourceReserveIps(),
 			"e2e_sfss":         sfs.DataSourceSfs(),
 			"e2e_objectstores": objectstore.DataSourceObjectStores(),
+			"e2e_kubernetes":   kubernetes.DataSourceKubernetesService(),
 		},
 		ConfigureFunc: providerConfigure,
 	}
