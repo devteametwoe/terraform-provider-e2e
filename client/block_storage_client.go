@@ -178,6 +178,37 @@ func (c *Client) AttachOrDetachBlockStorage(item *models.BlockStorageAttach, Act
 	}
 	return jsonRes, nil
 }
+func (c *Client) GetBlockStoragePlans(project_id int, location string) (map[string]interface{}, error) {
+	urlBlockStorage := c.Api_endpoint + "block_storage/plans/"
+	req, err := http.NewRequest("GET", urlBlockStorage, nil)
+	if err != nil {
+		return nil, err
+	}
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
+
+	client := &http.Client{}
+	log.Printf("[INFO] CLIENT | GET BLOCK STORAGE PLANS, BEFORE REQUEST %+v", req)
+	response, err := client.Do(req)
+
+	if err != nil {
+		return nil, err
+	}
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("[INFO] CLIENT | GET BLOCK STORAGE PLANS, AFTER RESPONSE jsonRes %+v", jsonRes)
+	return jsonRes, nil
+}
 
 func addParamsAndHeaders(req *http.Request, Api_key string, Auth_token string, project_id int, location string) *http.Request {
 	params := req.URL.Query()

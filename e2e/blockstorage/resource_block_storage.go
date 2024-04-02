@@ -21,17 +21,15 @@ func ResourceBlockStorage() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "The name of the block storage, also acts as its unique ID",
-				// ForceNew:     true,
+				Type:         schema.TypeString,
+				Required:     true,
+				Description:  "The name of the block storage, also acts as its unique ID",
 				ValidateFunc: node.ValidateName,
 			},
 			"size": {
-				Type:         schema.TypeFloat,
-				Required:     true,
-				Description:  "Size of the block storage in GB",
-				ValidateFunc: validateSize,
+				Type:        schema.TypeFloat,
+				Required:    true,
+				Description: "Size of the block storage in GB",
 			},
 			"iops": {
 				Type:        schema.TypeString,
@@ -41,13 +39,11 @@ func ResourceBlockStorage() *schema.Resource {
 			"project_id": {
 				Type:        schema.TypeInt,
 				Required:    true,
-				ForceNew:    true,
 				Description: "ID of the project. It should be unique",
 			},
 			"location": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				ForceNew:    true,
 				Description: "Location of the block storage",
 				ValidateFunc: validation.StringInSlice([]string{
 					"Delhi",
@@ -82,6 +78,10 @@ func resourceCreateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 
+	err := validateSize(d, m)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 	log.Printf("[INFO] BLOCK STORAGE CREATE STARTS ")
 	blockStorage := models.BlockStorageCreate{
 		Name: d.Get("name").(string),
@@ -163,12 +163,24 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 		}
 		return diag.Errorf("error finding Block Storage with ID %s: %s", blockStorageID, err.Error())
 	}
+	if d.HasChange("location") {
+		prevLocation, currLocation := d.GetChange("location")
+		log.Printf("[INFO] prevLocation %v, currLocation %v", prevLocation, currLocation)
+		d.Set("location", prevLocation)
+		return diag.Errorf("Location cannot be changed")
+	}
+	if d.HasChange("project_id") {
+		prevProjectID, currProjectID := d.GetChange("project_id")
+		log.Printf("[INFO] prevProjectID %v, currProjectID %v", prevProjectID, currProjectID)
+		d.Set("project_id", prevProjectID)
+		return diag.Errorf("Project ID cannot be changed")
+	}
 
 	if d.HasChange("vm_id") {
 		prevVMID, currVMID := d.GetChange("vm_id")
 		prevName, _ := d.GetChange("name")
 		prevSize, _ := d.GetChange("size")
-		log.Printf("[INFO] prevVMID %v, currVMID %v", prevVMID, currVMID)
+		log.Printf("[INFO] prevVMID %v, currVMID %v, type(currVMID) %T", prevVMID, currVMID, currVMID)
 
 		if d.Get("status") == "Attached" && prevVMID != "" {
 			vm_id, err := strconv.Atoi(prevVMID.(string))
@@ -180,6 +192,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 				VM_ID: vm_id,
 			}
 			res, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "detach", blockStorageID, project_id, location)
+			log.Printf("[INFO] BLOCK STORAGE DETACH | RESPONSE BODY | %+v", res)
 			if err != nil {
 				setPrevState(d, prevVMID, prevName, prevSize)
 				return diag.FromErr(err)
@@ -190,7 +203,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 		}
 		waitForDetach(apiClient, blockStorageID, project_id, location)
 
-		if currVMID != "" || currVMID != nil {
+		if currVMID != "" && currVMID != nil {
 			if d.Get("status") == "Available" {
 				vm_id, err := strconv.Atoi(currVMID.(string))
 				if err != nil {
@@ -201,12 +214,13 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 					VM_ID: vm_id,
 				}
 				resBlockStorage, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "attach", blockStorageID, project_id, location)
+				log.Printf("[INFO] BLOCK STORAGE ATTACH | RESPONSE BODY | %+v", resBlockStorage)
 				if err != nil {
 					setPrevState(d, "", prevName, prevSize)
 					return diag.FromErr(err)
 				}
 
-				log.Printf("[INFO] BLOCK STORAGE DETACH | RESPONSE BODY | %+v", resBlockStorage)
+				log.Printf("[INFO] BLOCK STORAGE ATTACH | RESPONSE BODY | %+v", resBlockStorage)
 				if _, codeok := resBlockStorage["code"]; !codeok {
 					setPrevState(d, "", prevName, prevSize)
 					return diag.Errorf(resBlockStorage["message"].(string))
@@ -223,6 +237,12 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	if d.HasChange("size") || d.HasChange("name") {
 		prevName, currName := d.GetChange("name")
 		prevSize, currSize := d.GetChange("size")
+		err := validateSize(d, m)
+		if err != nil {
+			d.Set("name", prevName)
+			d.Set("size", prevSize)
+			return diag.FromErr(err)
+		}
 		log.Printf("[INFO] prevSize %v, currSize %v", prevSize, currSize)
 
 		if d.Get("status") == "Attached" {
@@ -303,29 +323,6 @@ func convertIntoGB(bsSizeRes float64) float64 {
 	return bsSizeRes / 1024
 }
 
-func validateSize(i interface{}, key string) (ws []string, es []error) {
-	bsSize, ok := i.(float64)
-	if !ok {
-		es = append(es, fmt.Errorf("expected a float64"))
-		return
-	}
-
-	validSizes := []float64{250, 500, 1000, 2000, 4000, 8000, 16000, 24000} // These values are the size options available on MyAccount
-	valid := false
-	for _, size := range validSizes {
-		if bsSize == size {
-			valid = true
-			break
-		}
-	}
-
-	if !valid {
-		es = append(es, fmt.Errorf("size must be one of %v", validSizes))
-	}
-
-	return
-}
-
 func setPrevState(d *schema.ResourceData, prevVMID, prevName, prevSize interface{}) {
 	d.Set("vm_id", prevVMID)
 	d.Set("name", prevName)
@@ -347,4 +344,37 @@ func waitForDetach(apiClient *client.Client, blockStorageID string, project_id i
 		time.Sleep(2 * time.Second)
 	}
 	return nil
+}
+
+func validateSize(d *schema.ResourceData, m interface{}) error {
+	apiClient := m.(*client.Client)
+
+	resPlans, err := apiClient.GetBlockStoragePlans(d.Get("project_id").(int), d.Get("location").(string))
+
+	if err != nil {
+		return err
+	}
+	availablePlans := resPlans["data"].([]interface{})
+	isSizeValid := false
+
+	for _, val := range availablePlans {
+		plan, ok := val.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("failed to assert val to map[string]interface{}")
+		}
+		size, ok := plan["bs_size"].(float64)
+		// Convert TB into GB
+		size = size * 1000
+		if !ok {
+			return fmt.Errorf("failed to assert bs_size to float64")
+		}
+		log.Printf("[INFO] plan Size: %v", size)
+		isSizeValid = isSizeValid || (size == d.Get("size").(float64))
+	}
+
+	if !isSizeValid {
+		return fmt.Errorf("BlockStorage Size not available in the plans")
+	}
+	return nil
+
 }
