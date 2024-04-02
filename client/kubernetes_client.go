@@ -235,18 +235,6 @@ func RemoveExtraFieldsFromKubernetes(buf *bytes.Buffer) (bytes.Buffer, error) {
 	return *newBuffer, nil
 }
 
-func CheckResponseCreatedStatus(response *http.Response) error {
-	if response.StatusCode != http.StatusCreated {
-		respBody := new(bytes.Buffer)
-		_, err := respBody.ReadFrom(response.Body)
-		if err != nil {
-			return fmt.Errorf("got a non 201 status code: %v", response.StatusCode)
-		}
-		return fmt.Errorf("got a non 201 status code: %v - %s", response.StatusCode, respBody.String())
-	}
-	return nil
-}
-
 func (c *Client) GetKubernetesNodePools(clusterID string, project_id int, location string) (map[string]interface{}, error) {
 	url := c.Api_endpoint + "kubernetes/node-pool-services/" + clusterID
 	req, err := http.NewRequest("GET", url, nil)
