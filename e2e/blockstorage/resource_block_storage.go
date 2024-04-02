@@ -167,13 +167,13 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 		prevLocation, currLocation := d.GetChange("location")
 		log.Printf("[INFO] prevLocation %v, currLocation %v", prevLocation, currLocation)
 		d.Set("location", prevLocation)
-		return diag.Errorf("Location cannot be changed")
+		return diag.Errorf("Location cannot be changed once the block storage is created")
 	}
 	if d.HasChange("project_id") {
 		prevProjectID, currProjectID := d.GetChange("project_id")
 		log.Printf("[INFO] prevProjectID %v, currProjectID %v", prevProjectID, currProjectID)
 		d.Set("project_id", prevProjectID)
-		return diag.Errorf("Project ID cannot be changed")
+		return diag.Errorf("Project ID cannot be changed once the block storage is created")
 	}
 
 	if d.HasChange("vm_id") {
