@@ -189,7 +189,7 @@ func (c *Client) GetBlockStoragePlans(project_id int, location string) (map[stri
 	client := &http.Client{}
 	log.Printf("[INFO] CLIENT | GET BLOCK STORAGE PLANS, BEFORE REQUEST %+v", req)
 	response, err := client.Do(req)
-
+	log.Printf("[INFO] CLIENT | GET BLOCK STORAGE PLANS, AFTER RESPONSE response %+v", response)
 	if err != nil {
 		return nil, err
 	}

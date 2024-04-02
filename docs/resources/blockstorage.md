@@ -35,6 +35,7 @@ description: |-
 ### Optional
 
 - `location` (String) Location of the block storage. Defaults to your E2E MyAccount's default location.
+- `vm_id` (String) VM ID of the node or resource you want to attach to this block storage.
 
 ### Read-Only
 
