@@ -13,6 +13,7 @@ import (
 
 	//"time"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	// "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/security_group"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 
 	// "github.com/hashicorp/terraform-plugin-log"
@@ -112,10 +113,19 @@ func ResourceNode() *schema.Resource {
 				Description: "template id  is required when you save the node from saved images.Give the template id of the saved image. Required when is_saved_image field is true",
 				Default:     nil,
 			},
-			"security_group_id": {
-				Type:        schema.TypeInt,
+			"security_group_ids": {
+				Type:        schema.TypeList,
 				Optional:    true,
 				Description: "Specify the security group. Checkout security_groups datasource listing security groups",
+				Elem: &schema.Schema{
+					Type:        schema.TypeInt,
+					Description: "ID of the security group",
+				},
+			},
+			"default_sg": {
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "Default Security Group",
 			},
 			"ssh_keys": {
 				Type:        schema.TypeList,
@@ -250,6 +260,28 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("ssh_keys", new_SSH_keys)
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
+	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("region").(string))
+	if err != nil {
+		return diag.Errorf("error finding security groups")
+	}
+	defaultSG := getDefaultSG(response)
+	d.Set("default_sg", defaultSG)
+
+	security_group := defaultSG
+	if securityGroupsList, ok := d.GetOk("security_group_ids"); ok {
+		if securityGroupsList != nil {
+			if securityGroups, ok := securityGroupsList.([]interface{}); ok && len(securityGroups) > 0 {
+				security_group = securityGroups[0].(int)
+				if len(securityGroups) > 1 {
+					log.Printf("Can only attach a single security group while node creation. Only the first Security Group will be attached")
+					d.Set("security_group_ids", []int{security_group})
+				}
+			}
+		}
+	} else {
+		d.Set("security_group_ids", []int{defaultSG})
+	}
+
 	node := models.NodeCreate{
 		Name:              d.Get("name").(string),
 		Label:             d.Get("label").(string),
@@ -264,7 +296,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		Region:            d.Get("region").(string),
 		Reserve_ip:        d.Get("reserve_ip").(string),
 		Vpc_id:            d.Get("vpc_id").(string),
-		Security_group_id: d.Get("security_group_id").(int),
+		Security_group_id: security_group,
 		SSH_keys:          d.Get("ssh_keys").([]interface{}),
 		Start_scripts:     d.Get("start_scripts").([]interface{}),
 	}
@@ -351,6 +383,12 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	if d.Get("status").(string) == "Powered off" {
 		d.Set("power_status", "power_off")
 	}
+	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("region").(string))
+	if err != nil {
+		return diag.Errorf("error finding security groups")
+	}
+	defaultSG := getDefaultSG(response)
+	d.Set("default_sg", defaultSG)
 
 	return diags
 
@@ -462,6 +500,67 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
+	if d.HasChange("security_group_ids") {
+		oldSGData, newSGData := d.GetChange("security_group_ids")
+		if d.Get("status").(string) != "Running" {
+			d.Set("security_group_ids", oldSGData)
+			return diag.Errorf("Can only update security groups once the node comes to the running state")
+		}
+		vm_id := d.Get("vm_id").(int)
+		security_groups_list := d.Get("security_group_ids").([]interface{})
+
+		if len(security_groups_list) <= 0 {
+			d.Set("security_group_ids", oldSGData)
+			return diag.Errorf("Atleast one security groups must be attached to a node!")
+		}
+		oldSGList := oldSGData.([]interface{})
+		newSGList := newSGData.([]interface{})
+		sgMap := make(map[int]int)
+		for _, sgID := range newSGList {
+			sgMap[sgID.(int)] = 1
+		}
+		for _, sgID := range oldSGList {
+			if count, ok := sgMap[sgID.(int)]; ok {
+				sgMap[sgID.(int)] = count - 1
+			} else {
+				sgMap[sgID.(int)] = -1
+			}
+		}
+		var toBeAttached []int
+		for key, value := range sgMap {
+			if value == -1 {
+				log.Printf("----------HAVE TO DETACH THE SECURITY GROUP WITH ID %+v ------------------", key)
+				payload := models.UpdateSecurityGroups{
+					SecurityGroupList: []int{key},
+				}
+
+				response, err := apiClient.DetachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("region").(string))
+				if err != nil {
+					return diag.FromErr(err)
+				}
+				if _, codeOK := response["code"]; !codeOK {
+					return diag.Errorf(response["message"].(string))
+				}
+				continue
+			}
+			if value >= 1 {
+				toBeAttached = append(toBeAttached, key)
+			}
+		}
+		if len(toBeAttached) >= 1 {
+			payload := models.UpdateSecurityGroups{
+				SecurityGroupList: toBeAttached,
+			}
+			response, err := apiClient.AttachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("region").(string))
+			if err != nil {
+				return diag.FromErr(err)
+			}
+			if _, codeOK := response["code"]; !codeOK {
+				return diag.Errorf(response["message"].(string))
+			}
+		}
+	}
+
 	if d.HasChange("label") {
 		log.Printf("[INFO] nodeId = %v changed label = %s ", d.Id(), d.Get("label").(string))
 		_, err = apiClient.UpdateNode(nodeId, "label_rename", d.Get("label").(string), project_id)
@@ -553,4 +652,20 @@ func resourceExistsNode(d *schema.ResourceData, m interface{}) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func getDefaultSG(response map[string]interface{}) int {
+	var res int
+	data := response["data"].([]interface{})
+	for _, sg := range data {
+		sgMap := sg.(map[string]interface{})
+		defaultStatus := sgMap["is_default"].(bool)
+		if defaultStatus {
+			res = int(sgMap["id"].(float64))
+			break
+		}
+
+	}
+	log.Printf("------------Default security group is: %+v -------------", res)
+	return res
 }
