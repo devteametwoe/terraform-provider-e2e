@@ -740,6 +740,7 @@ func waitForPoweringOffOn(m interface{}, nodeId string, project_id string) error
 		log.Printf("[INFO] Waiting for Node to power off/on before upgrading the plan")
 	}
 	return nil
+}
 
 func getDefaultSG(response map[string]interface{}) int {
 	var res int
