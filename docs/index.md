@@ -19,7 +19,7 @@ terraform {
  required_providers {
    e2e = {
      source = "e2eterraformprovider/e2e"
-     version = "2.1.9-beta"  # This version is under testing currently, please restrict yourself from using them. 
+     version = "2.1.9-testing"  # This version is under testing currently, please restrict yourself from using them. 
    }
  }
 }
