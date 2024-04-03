@@ -160,7 +160,7 @@ func (c *Client) AttachOrDetachBlockStorage(item *models.BlockStorageAttach, Act
 	response, err := c.HttpClient.Do(req)
 	log.Printf("[INFO] CLIENT | %s BLOCK STORAGE | after response %+v", Action, response)
 	if err == nil {
-		err = CheckResponseStatus(response)
+		err = CheckResponseStatusForBlock(response)
 	}
 	if err != nil {
 		return nil, err
@@ -178,6 +178,37 @@ func (c *Client) AttachOrDetachBlockStorage(item *models.BlockStorageAttach, Act
 	}
 	return jsonRes, nil
 }
+func (c *Client) GetBlockStoragePlans(project_id int, location string) (map[string]interface{}, error) {
+	urlBlockStorage := c.Api_endpoint + "block_storage/plans/"
+	req, err := http.NewRequest("GET", urlBlockStorage, nil)
+	if err != nil {
+		return nil, err
+	}
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
+
+	client := &http.Client{}
+	log.Printf("[INFO] CLIENT | GET BLOCK STORAGE PLANS, BEFORE REQUEST %+v", req)
+	response, err := client.Do(req)
+	log.Printf("[INFO] CLIENT | GET BLOCK STORAGE PLANS, AFTER RESPONSE response %+v", response)
+	if err != nil {
+		return nil, err
+	}
+	err = CheckResponseStatusForBlock(response)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("[INFO] CLIENT | GET BLOCK STORAGE PLANS, AFTER RESPONSE jsonRes %+v", jsonRes)
+	return jsonRes, nil
+}
 
 func addParamsAndHeaders(req *http.Request, Api_key string, Auth_token string, project_id int, location string) *http.Request {
 	params := req.URL.Query()
@@ -189,4 +220,15 @@ func addParamsAndHeaders(req *http.Request, Api_key string, Auth_token string, p
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
 	return req
+}
+
+func CheckResponseStatusForBlock(response *http.Response) error {
+	if response.StatusCode != http.StatusOK {
+		var errorResponse models.ErrorResponse
+		if err := json.NewDecoder(response.Body).Decode(&errorResponse); err != nil {
+			return fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, errorResponse.Errors)
+	}
+	return nil
 }
