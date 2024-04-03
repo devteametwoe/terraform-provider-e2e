@@ -46,6 +46,7 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 - `ssh_keys` : (Optional) (List of String) Specify the label of ssh keys as required. Checkout ssh_keys datasource for listing ssh keys
 - `vpc_id` : (Optional) (String) Vpc id as per requirement. Checkout vpcs_datasource for listing vpcs.
 - `security_group_ids ` : (Optional) (List of Integer) Specify a list of security groups IDs to attach. When creating a node, only one security group ID should be present. Otherwise, only the first one will be attached.
+- `block_storage_id` : (Optional) (String) The id of the block storage to be attached to the node.
 
 ### Actions
 

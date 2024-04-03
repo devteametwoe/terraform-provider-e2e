@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	//"time"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
@@ -218,6 +219,11 @@ func ResourceNode() *schema.Resource {
 				Computed:    true,
 				Description: "The id of the VM.",
 			},
+			"block_storage_id": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "The id of the block storage to be attached to the node",
+			},
 		},
 
 		CreateContext: resourceCreateNode,
@@ -259,6 +265,10 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 	d.Set("ssh_keys", new_SSH_keys)
 
+	image_id, err := convertStringToInt(d.Get("block_storage_id").(string))
+	if err != nil {
+		return diag.FromErr(err)
+	}
 	log.Printf("[INFO] NODE CREATE STARTS ")
 	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("region").(string))
 	if err != nil {
@@ -299,6 +309,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		Security_group_id: security_group,
 		SSH_keys:          d.Get("ssh_keys").([]interface{}),
 		Start_scripts:     d.Get("start_scripts").([]interface{}),
+		Image_id:          image_id,
 	}
 
 	if node.Vpc_id != "" {
@@ -603,6 +614,11 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 	if d.HasChange("plan") {
 		prevPlan, currPlan := d.GetChange("plan")
+
+		if d.HasChange("power_status") {
+			waitForPoweringOffOn(m, nodeId, project_id)
+		}
+
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
 
 		if d.Get("status").(string) != "Powered off" {
@@ -616,6 +632,46 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			return diag.FromErr(err)
 		}
 	}
+
+	if d.HasChange("block_storage_id") {
+
+		log.Printf("[INFO] Power_status changeing is = %v", d.HasChange("power_status"))
+		if d.HasChange("power_status") {
+			err := waitForPoweringOffOn(m, nodeId, project_id)
+			if err != nil {
+				return diag.FromErr(err)
+			}
+		}
+
+		prevBlockID, currBlockID := d.GetChange("block_storage_id")
+		log.Printf("[INFO] prevID %v, currID %v", prevBlockID, currBlockID)
+		blockStorage := models.BlockStorageAttach{
+			VM_ID: d.Get("vm_id").(int),
+		}
+		project_id_int, Err := strconv.Atoi(project_id)
+		if Err != nil {
+			d.Set("block_storage_id", prevBlockID)
+			return diag.FromErr(Err)
+		}
+
+		if prevBlockID != "" && prevBlockID != nil {
+			blockStorageID := prevBlockID.(string)
+			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "detach", blockStorageID, project_id_int, location)
+			if err != nil {
+				d.Set("block_storage_id", prevBlockID)
+				return diag.FromErr(err)
+			}
+		}
+		if currBlockID != "" && currBlockID != nil {
+			blockStorageID := currBlockID.(string)
+			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "attach", blockStorageID, project_id_int, location)
+			if err != nil {
+				d.Set("block_storage_id", "")
+				return diag.FromErr(err)
+			}
+		}
+	}
+
 	return resourceReadNode(ctx, d, m)
 
 }
@@ -652,6 +708,38 @@ func resourceExistsNode(d *schema.ResourceData, m interface{}) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func convertStringToInt(str string) (int, error) {
+	if str == "" {
+		return 0, nil
+	}
+	i, err := strconv.Atoi(str)
+	if err != nil {
+		return 0, err
+	}
+	return i, nil
+}
+
+func waitForPoweringOffOn(m interface{}, nodeId string, project_id string) error {
+	apiClient := m.(*client.Client)
+
+	for {
+		// Wait for 2 seconds before checking the status again (is Node powered on or off?)
+		time.Sleep(2 * time.Second)
+
+		nodeInfo, err := apiClient.GetNode(nodeId, project_id)
+		if err != nil {
+			log.Printf("[ERROR] Error getting Node Info inside Plan Upgrade. Error : %s", err)
+			return err
+		}
+		data := nodeInfo["data"].(map[string]interface{})
+		if !(data["status"] == "Powering on" || data["status"] == "Powering off") {
+			break
+		}
+		log.Printf("[INFO] Waiting for Node to power off/on before upgrading the plan")
+	}
+	return nil
 }
 
 func getDefaultSG(response map[string]interface{}) int {
