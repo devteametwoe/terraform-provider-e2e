@@ -44,6 +44,7 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 - `saved_image_template_id` :  (Optional) (Number) template id  is required when you save the node from saved images.Give the template id of the saved image. Required when is_saved_image field is true
 - `ssh_keys` : (Optional) (List of String) Specify the label of ssh keys as required. Checkout ssh_keys datasource for listing ssh keys
 - `vpc_id` : (Optional) (String) Vpc id as per requirement. Checkout vpcs_datasource for listing vpcs.
+- `block_storage_id` : (Optional) (String) The id of the block storage to be attached to the node.
 
 ### Actions
 
