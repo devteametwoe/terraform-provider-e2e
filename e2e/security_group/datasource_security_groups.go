@@ -14,9 +14,9 @@ import (
 
 	// "github.com/hashicorp/terraform-plugin-log"
 	// "github.com/hashicorp/terraform-plugin-log/tflog"
-
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -119,6 +119,21 @@ func DataSourceSecurityGroups() *schema.Resource {
 					},
 				},
 			},
+			"project_id": {
+				Type:        schema.TypeInt,
+				Required:    true,
+				Description: "ID of the project. It should be unique",
+			},
+			"location": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Location of the block storage",
+				ValidateFunc: validation.StringInSlice([]string{
+					"Delhi",
+					"Mumbai",
+				}, false),
+				Default: "Delhi",
+			},
 		},
 		ReadContext: dataSourceReadSecurityGroups,
 		Importer: &schema.ResourceImporter{
@@ -132,7 +147,7 @@ func dataSourceReadSecurityGroups(ctx context.Context, d *schema.ResourceData, m
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside images data source ")
-	Response, err := apiClient.GetSecurityGroups()
+	Response, err := apiClient.GetSecurityGroups(d.Get("project_id").(int), d.Get("location").(string))
 	if err != nil {
 		return diag.Errorf("error finding security groups")
 	}
