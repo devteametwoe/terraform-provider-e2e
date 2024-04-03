@@ -48,6 +48,7 @@ func ResourceBlockStorage() *schema.Resource {
 				ValidateFunc: validation.StringInSlice([]string{
 					"Delhi",
 					"Mumbai",
+					"Delhi-NCR-2",
 				}, false),
 				Default: "Delhi",
 			},

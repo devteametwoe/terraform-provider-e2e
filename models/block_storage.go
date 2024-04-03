@@ -38,3 +38,7 @@ type BlockStorage struct {
 type BlockStorageAttach struct {
 	VM_ID int `json:"vm_id"`
 }
+
+type ErrorResponse struct {
+	Errors string `json:"errors"`
+}

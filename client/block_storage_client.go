@@ -160,7 +160,7 @@ func (c *Client) AttachOrDetachBlockStorage(item *models.BlockStorageAttach, Act
 	response, err := c.HttpClient.Do(req)
 	log.Printf("[INFO] CLIENT | ATTACH/DETACH BLOCK STORAGE | after response %+v", response)
 	if err == nil {
-		err = CheckResponseStatus(response)
+		err = CheckResponseStatusForBlock(response)
 	}
 	if err != nil {
 		return nil, err
@@ -193,7 +193,7 @@ func (c *Client) GetBlockStoragePlans(project_id int, location string) (map[stri
 	if err != nil {
 		return nil, err
 	}
-	err = CheckResponseStatus(response)
+	err = CheckResponseStatusForBlock(response)
 	if err != nil {
 		return nil, err
 	}
@@ -220,4 +220,15 @@ func addParamsAndHeaders(req *http.Request, Api_key string, Auth_token string, p
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
 	return req
+}
+
+func CheckResponseStatusForBlock(response *http.Response) error {
+	if response.StatusCode != http.StatusOK {
+		var errorResponse models.ErrorResponse
+		if err := json.NewDecoder(response.Body).Decode(&errorResponse); err != nil {
+			return fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, errorResponse.Errors)
+	}
+	return nil
 }
