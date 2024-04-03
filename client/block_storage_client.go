@@ -156,9 +156,9 @@ func (c *Client) AttachOrDetachBlockStorage(item *models.BlockStorageAttach, Act
 		return nil, err
 	}
 	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
-	log.Printf("[INFO] CLIENT | ATTACH/DETACH BLOCK STORAGE | before request %+v", req)
+	log.Printf("[INFO] CLIENT | %s BLOCK STORAGE | before request %+v", Action, req)
 	response, err := c.HttpClient.Do(req)
-	log.Printf("[INFO] CLIENT | ATTACH/DETACH BLOCK STORAGE | after response %+v", response)
+	log.Printf("[INFO] CLIENT | %s BLOCK STORAGE | after response %+v", Action, response)
 	if err == nil {
 		err = CheckResponseStatusForBlock(response)
 	}
