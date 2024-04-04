@@ -219,10 +219,14 @@ func ResourceNode() *schema.Resource {
 				Computed:    true,
 				Description: "The id of the VM.",
 			},
-			"block_storage_id": {
-				Type:        schema.TypeString,
+			"block_storage_ids": {
+				Type:        schema.TypeList,
 				Optional:    true,
 				Description: "The id of the block storage to be attached to the node",
+				Elem: &schema.Schema{
+					Type:        schema.TypeString,
+					Description: "ID of the block storage",
+				},
 			},
 		},
 
@@ -265,10 +269,21 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 	d.Set("ssh_keys", new_SSH_keys)
 
-	image_id, err := convertStringToInt(d.Get("block_storage_id").(string))
-	if err != nil {
-		return diag.FromErr(err)
+	if len(d.Get("block_storage_ids").([]interface{})) > 1 {
+		return diag.Errorf("Can only attach a single block storage while node creation.")
 	}
+	image_id := 0
+	if len(d.Get("block_storage_ids").([]interface{})) == 1 {
+		if d.Get("plan").(string)[0:2] == "C2" {
+			return diag.Errorf("Block storage can not be attached to C2 plan")
+		}
+		image_id_temp, err := convertStringToInt(d.Get("block_storage_ids").([]interface{})[0].(string))
+		if err != nil {
+			return diag.FromErr(err)
+		}
+		image_id = image_id_temp
+	}
+
 	log.Printf("[INFO] NODE CREATE STARTS ")
 	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("location").(string))
 	if err != nil {
@@ -386,7 +401,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	d.Set("vm_id", int(data["vm_id"].(float64)))
 
 	log.Printf("[info] node Resource read | after setting data")
-	if d.Get("status").(string) == "Running" {
+	if d.Get("status").(string) == "Running" || d.Get("status").(string) == "Creating" {
 		d.Set("power_status", "power_on")
 	}
 	if d.Get("status").(string) == "Powered off" {
@@ -631,7 +646,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
-	if d.HasChange("block_storage_id") {
+	if d.HasChange("block_storage_ids") {
 
 		log.Printf("[INFO] Power_status changeing is = %v", d.HasChange("power_status"))
 		if d.HasChange("power_status") {
@@ -641,32 +656,53 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			}
 		}
 
-		prevBlockID, currBlockID := d.GetChange("block_storage_id")
-		log.Printf("[INFO] prevID %v, currID %v", prevBlockID, currBlockID)
+		prevBlockIDArray, currBlockIDArray := d.GetChange("block_storage_ids")
+
+		if d.Get("plan").(string)[0:2] == "C2" {
+			d.Set("block_storage_ids", prevBlockIDArray)
+			return diag.Errorf("Block storage can not be attached to C2 plan")
+		}
+
+		detachingIDs := UniqueArrayElements(prevBlockIDArray.([]interface{}), currBlockIDArray.([]interface{}))
+		attachingIDs := UniqueArrayElements(currBlockIDArray.([]interface{}), prevBlockIDArray.([]interface{}))
+		CommonIDs := detachingIDs
+		log.Printf("[INFO] detachingIDs %+v, attachingIDs %+v, CommonIDs %+v", detachingIDs, attachingIDs, CommonIDs)
+		log.Printf("[INFO] prevIDArray %v, currIDArray %v", prevBlockIDArray, currBlockIDArray)
+
 		blockStorage := models.BlockStorageAttach{
 			VM_ID: d.Get("vm_id").(int),
 		}
 		project_id_int, Err := strconv.Atoi(project_id)
 		if Err != nil {
-			d.Set("block_storage_id", prevBlockID)
+			d.Set("block_storage_ids", prevBlockIDArray)
 			return diag.FromErr(Err)
 		}
 
-		if prevBlockID != "" && prevBlockID != nil {
-			blockStorageID := prevBlockID.(string)
+		for _, detachingID := range detachingIDs {
+
+			blockStorageID := detachingID.(string)
 			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "detach", blockStorageID, project_id_int, location)
 			if err != nil {
-				d.Set("block_storage_id", prevBlockID)
+				d.Set("block_storage_ids", CommonIDs)
 				return diag.FromErr(err)
 			}
+			CommonIDs = removeArrayElement(CommonIDs, detachingID)
+			// Wait for some time before detaching the next block storage
+			// waitForPoweringOffOn(m, nodeId, project_id)
+			time.Sleep(18 * time.Second)
 		}
-		if currBlockID != "" && currBlockID != nil {
-			blockStorageID := currBlockID.(string)
+		for _, attachingID := range attachingIDs {
+			blockStorageID := attachingID.(string)
 			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "attach", blockStorageID, project_id_int, location)
 			if err != nil {
-				d.Set("block_storage_id", "")
+				d.Set("block_storage_ids", CommonIDs)
+				log.Printf("[ERROR] Error attaching block storage CommonIDs = %+v", CommonIDs)
 				return diag.FromErr(err)
 			}
+			CommonIDs = append(CommonIDs, attachingID)
+			// Wait for some time before attaching the next block storage
+			// waitForPoweringOffOn(m, nodeId, project_id)
+			time.Sleep(18 * time.Second)
 		}
 	}
 
@@ -708,6 +744,17 @@ func resourceExistsNode(d *schema.ResourceData, m interface{}) (bool, error) {
 	return true, nil
 }
 
+func convertStringArrayToIntArray(strs []interface{}) ([]int, error) {
+	var res []int
+	for _, v := range strs {
+		i, err := convertStringToInt(v.(string))
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, i)
+	}
+	return res, nil
+}
 func convertStringToInt(str string) (int, error) {
 	if str == "" {
 		return 0, nil
@@ -753,5 +800,44 @@ func getDefaultSG(response map[string]interface{}) int {
 
 	}
 	log.Printf("------------Default security group is: %+v -------------", res)
+	return res
+}
+
+func UniqueArrayElements(arr1 []interface{}, arr2 []interface{}) []interface{} {
+	var res []interface{}
+	for _, v := range arr1 {
+		if !isContains(arr2, v) {
+			res = append(res, v)
+		}
+	}
+	return res
+}
+
+func isContains(arr []interface{}, val interface{}) bool {
+	for _, v := range arr {
+		if v == val {
+			return true
+		}
+	}
+	return false
+}
+
+func CommonArrayElements(arr1 []interface{}, arr2 []interface{}) []interface{} {
+	var res []interface{}
+	for _, v := range arr1 {
+		if isContains(arr2, v) {
+			res = append(res, v)
+		}
+	}
+	return res
+}
+
+func removeArrayElement(arr []interface{}, val interface{}) []interface{} {
+	var res []interface{}
+	for _, v := range arr {
+		if v != val {
+			res = append(res, v)
+		}
+	}
 	return res
 }

@@ -59,8 +59,13 @@ func ResourceBlockStorage() *schema.Resource {
 			},
 			"vm_id": {
 				Type:        schema.TypeString,
-				Optional:    true,
+				Computed:    true,
 				Description: "ID of the VM to which the block storage is attached",
+			},
+			"vm_name": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Name of the VM to which the block storage is attached",
 			},
 		},
 
@@ -137,11 +142,19 @@ func resourceReadBlockStorage(ctx context.Context, d *schema.ResourceData, m int
 	log.Printf("[INFO] BLOCK STORAGE READ | BEFORE SETTING DATA")
 	data := blockStorage["data"].(map[string]interface{})
 	template := data["template"].(map[string]interface{})
+	vm_detail := data["vm_detail"].(map[string]interface{})
 	// resSize := convertIntoGB(data["size"].(float64))
 	d.Set("name", data["name"].(string))
 	// d.Set("size", resSize)
 	d.Set("status", data["status"].(string))
 	d.Set("iops", template["TOTAL_IOPS_SEC"].(string))
+	if val, ok := vm_detail["vm_id"]; ok {
+		d.Set("vm_id", strconv.Itoa(int(val.(float64))))
+		d.Set("vm_name", vm_detail["vm_name"].(string))
+	} else {
+		d.Set("vm_id", nil)
+		d.Set("vm_name", nil)
+	}
 
 	log.Printf("[INFO] BLOCK STORAGE READ | AFTER SETTING DATA")
 
