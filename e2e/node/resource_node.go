@@ -288,8 +288,6 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 				}
 			}
 		}
-	} else {
-		d.Set("security_group_ids", []int{defaultSG})
 	}
 
 	node := models.NodeCreate{
