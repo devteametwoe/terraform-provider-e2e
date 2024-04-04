@@ -678,7 +678,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			return diag.FromErr(Err)
 		}
 
-		for _, detachingID := range detachingIDs {
+		for i, detachingID := range detachingIDs {
 
 			blockStorageID := detachingID.(string)
 			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "detach", blockStorageID, project_id_int, location)
@@ -689,9 +689,12 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			CommonIDs = removeArrayElement(CommonIDs, detachingID)
 			// Wait for some time before detaching the next block storage
 			// waitForPoweringOffOn(m, nodeId, project_id)
+			if i == len(detachingIDs)-1 {
+				break
+			}
 			time.Sleep(18 * time.Second)
 		}
-		for _, attachingID := range attachingIDs {
+		for i, attachingID := range attachingIDs {
 			blockStorageID := attachingID.(string)
 			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "attach", blockStorageID, project_id_int, location)
 			if err != nil {
@@ -702,6 +705,9 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			CommonIDs = append(CommonIDs, attachingID)
 			// Wait for some time before attaching the next block storage
 			// waitForPoweringOffOn(m, nodeId, project_id)
+			if i == len(attachingIDs)-1 {
+				break
+			}
 			time.Sleep(18 * time.Second)
 		}
 	}
