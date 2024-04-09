@@ -445,6 +445,8 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	if d.HasChange("power_status") {
 		nodestatus := d.Get("status").(string)
 		if nodestatus == "Creating" || nodestatus == "Reinstalling" {
+			prevBlockIDArray, _ := d.GetChange("block_storage_ids")
+			d.Set("block_storage_ids", prevBlockIDArray)
 			return diag.Errorf("Node is in %s state", d.Get("status").(string))
 		}
 		if d.Get("lock_node").(bool) == true {
