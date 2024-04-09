@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -354,8 +355,8 @@ func waitForDetach(apiClient *client.Client, blockStorageID string, project_id i
 		if data["status"] == "Available" {
 			break
 		}
-		// Wait for 2 seconds before checking the status again (is Volume Detached?)
-		time.Sleep(2 * time.Second)
+		// Wait for some time before checking the status again (is Volume Detached?)
+		time.Sleep(constants.WAIT_TIMEOUT * time.Second)
 	}
 	return nil
 }

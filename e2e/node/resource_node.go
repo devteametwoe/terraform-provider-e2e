@@ -14,6 +14,8 @@ import (
 
 	//"time"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/constants"
+
 	// "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/security_group"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 
@@ -692,7 +694,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			if i == len(detachingIDs)-1 {
 				break
 			}
-			time.Sleep(18 * time.Second)
+			waitForDesiredState(apiClient, nodeId, project_id, location)
 		}
 		for i, attachingID := range attachingIDs {
 			blockStorageID := attachingID.(string)
@@ -708,7 +710,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			if i == len(attachingIDs)-1 {
 				break
 			}
-			time.Sleep(18 * time.Second)
+			waitForDesiredState(apiClient, nodeId, project_id, location)
 		}
 	}
 
@@ -776,8 +778,8 @@ func waitForPoweringOffOn(m interface{}, nodeId string, project_id string) error
 	apiClient := m.(*client.Client)
 
 	for {
-		// Wait for 2 seconds before checking the status again (is Node powered on or off?)
-		time.Sleep(2 * time.Second)
+		// Wait for some time before checking the status again (is Node powered on or off?)
+		time.Sleep(constants.WAIT_TIMEOUT * time.Second)
 
 		nodeInfo, err := apiClient.GetNode(nodeId, project_id)
 		if err != nil {
@@ -785,7 +787,8 @@ func waitForPoweringOffOn(m interface{}, nodeId string, project_id string) error
 			return err
 		}
 		data := nodeInfo["data"].(map[string]interface{})
-		if !(data["status"] == "Powering on" || data["status"] == "Powering off") {
+		log.Printf("[INFO] Node Status : %s", data["status"])
+		if data["status"] == "Running" || data["status"] == "Powered off" {
 			break
 		}
 		log.Printf("[INFO] Waiting for Node to power off/on before upgrading the plan")
@@ -846,4 +849,23 @@ func removeArrayElement(arr []interface{}, val interface{}) []interface{} {
 		}
 	}
 	return res
+}
+
+func waitForDesiredState(apiClient *client.Client, nodeId string, project_id string, location string) diag.Diagnostics {
+	for {
+		// Wait for some time before checking the status again (is Volume Detached?)
+		time.Sleep(constants.WAIT_TIMEOUT * time.Second)
+
+		response, err := apiClient.CheckNodeLCMState(nodeId, project_id, location)
+		if err != nil {
+			log.Printf("[ERROR] Error getting lcm_state %s", err)
+			return diag.FromErr(err)
+		}
+		data := response["data"].(map[string]interface{})
+		log.Printf("[INFO] waitForDesiredState data : %+v", data)
+		if data["state"].(string) == "NOT_HOTPLUG" {
+			break
+		}
+	}
+	return nil
 }
