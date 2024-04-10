@@ -35,7 +35,6 @@ description: |-
 ### Optional
 
 - `location` (String) Location of the block storage. Defaults to your E2E MyAccount's default location.
-- `vm_id` (String) VM ID of the node or resource you want to attach to this block storage.
 
 ### Read-Only
 
@@ -44,3 +43,5 @@ description: |-
 - `id` (String) The ID of this resource.
 - `iops` (Number) Input/Output Operations Per Second for the block storage, automatically set.
 - `status` (String) status (String): Current status of the block storage.
+- `vm_id` (String) ID of the VM to which the block storage is attached.
+- `vm_name` (String) Name of the VM to which the block storage is attached.

@@ -45,7 +45,7 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 - `saved_image_template_id` :  (Optional) (Number) template id  is required when you save the node from saved images.Give the template id of the saved image. Required when is_saved_image field is true
 - `ssh_keys` : (Optional) (List of String) Specify the label of ssh keys as required. Checkout ssh_keys datasource for listing ssh keys
 - `vpc_id` : (Optional) (String) Vpc id as per requirement. Checkout vpcs_datasource for listing vpcs.
-- `block_storage_id` : (Optional) (String) The id of the block storage to be attached to the node.
+- `block_storage_ids` : (Optional) (List of String) Specify The list of  Block storage(Volume) IDs to attach. When creating a node, only one Block Storage ID Must be present.
 - `security_group_ids ` : (Optional) (List of Integer) Specify a list of security groups IDs to attach. When creating a node, only one security group ID should be present. Otherwise, only the first one will be attached.
 
 ### Actions
