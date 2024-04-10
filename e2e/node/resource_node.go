@@ -270,9 +270,9 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		return diag.FromErr(err)
 	}
 	log.Printf("[INFO] NODE CREATE STARTS ")
-	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("region").(string))
+	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("location").(string))
 	if err != nil {
-		return diag.Errorf("error finding security groups")
+		return diag.Errorf("error finding security groups. please confirm the project_id or location that you defined.")
 	}
 	defaultSG := getDefaultSG(response)
 	d.Set("default_sg", defaultSG)
@@ -288,8 +288,6 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 				}
 			}
 		}
-	} else {
-		d.Set("security_group_ids", []int{defaultSG})
 	}
 
 	node := models.NodeCreate{
