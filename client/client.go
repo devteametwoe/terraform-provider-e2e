@@ -490,7 +490,6 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id s
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
-	log.Printf("inside create vpc Json Response = %+v", err)
 
 	if err != nil {
 		return nil, err

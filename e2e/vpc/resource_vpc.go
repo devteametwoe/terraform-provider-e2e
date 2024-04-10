@@ -119,9 +119,6 @@ func ResourceCreateVpc(ctx context.Context, d *schema.ResourceData, m interface{
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	if code, ok := resvpc["code"].(int); !ok || code < 200 || code >= 300 {
-		return diag.Errorf("%+v: %+v | %+v", resvpc["code"], resvpc["message"], resvpc["errors"])
-	}
 
 	data := resvpc["data"].(map[string]interface{})
 	log.Printf("[INFO] vpc creation | before setting fields")
