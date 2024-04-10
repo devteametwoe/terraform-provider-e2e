@@ -865,7 +865,7 @@ func waitForDesiredState(apiClient *client.Client, nodeId string, project_id str
 		}
 		data := response["data"].(map[string]interface{})
 		log.Printf("[INFO] waitForDesiredState data : %+v", data)
-		if data["state"].(string) == "NOT_HOTPLUG" {
+		if !(data["state"].(string) == "Hotplug" || data["state"].(string) == "HOTPLUG_PROLOG_POWEROFF" || data["state"].(string) == "HOTPLUG_EPILOG_POWEROFF") {
 			break
 		}
 	}
