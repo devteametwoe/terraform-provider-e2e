@@ -21,7 +21,6 @@ func ResourceObjectStore() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "The name of the bucket, also act as it's unique ID.",
-				ForceNew:    true,
 			},
 			"project_id": {
 				Type:        schema.TypeInt,
@@ -147,6 +146,11 @@ func resourceUpdateBucket(ctx context.Context, resourceData *schema.ResourceData
 
 	apiClient := clientInterface.(*client.Client)
 
+	if resourceData.HasChange("name") {
+		oldName, _ := resourceData.GetChange("name")
+		resourceData.Set("name", oldName)
+		return diag.Errorf("cannot change the bucket name of an object storage after creation")
+	}
 	bucketName := resourceData.Get("name").(string)
 	projectID := fmt.Sprint(resourceData.Get("project_id").(int))
 	region := resourceData.Get("region").(string)
