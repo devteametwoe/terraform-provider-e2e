@@ -816,9 +816,9 @@ func (c *Client) GetSecurityGroupList(project_id string, location string) (map[s
 	if err != nil {
 		return nil, err
 	}
-	projectIDInt, error := strconv.Atoi(project_id)
-	if error != nil {
-		return nil, error
+	projectIDInt, err := strconv.Atoi(project_id)
+	if err != nil {
+		return nil, err
 	}
 	addParamsAndHeaders(req, c.Api_key, c.Auth_token, projectIDInt, location)
 	response, err := c.HttpClient.Do(req)
