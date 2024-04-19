@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 
 	//"time"
@@ -117,10 +118,10 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 	data := resImage.(map[string]interface{})["data"].(map[string]interface{})
-	imageId := data["image_id"].(string)
+	imageId := data["id"].(float64)
 	fmt.Println(data)
 	log.Printf("[INFO] IMAGE CREATION | before setting fields")
-	d.SetId(imageId)
+	d.SetId(strconv.FormatFloat(imageId, 'f', -1, 64))
 	resourceReadImage(ctx, d, m)
 
 	return diags

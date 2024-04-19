@@ -94,12 +94,6 @@ func ResourceNode() *schema.Resource {
 				Optional: true,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
-			"region": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "region",
-				Default:     "ncr",
-			},
 			"reserve_ip": {
 				Type:        schema.TypeString,
 				Optional:    true,
@@ -318,7 +312,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		Enable_bitninja:   d.Get("enable_bitninja").(bool),
 		Is_ipv6_availed:   d.Get("is_ipv6_availed").(bool),
 		Is_saved_image:    d.Get("is_saved_image").(bool),
-		Region:            d.Get("region").(string),
+		// Region:            d.Get("location").(string),
 		Reserve_ip:        d.Get("reserve_ip").(string),
 		Vpc_id:            d.Get("vpc_id").(string),
 		Security_group_id: security_group,
@@ -328,7 +322,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if node.Vpc_id != "" {
-		vpc_details, err := apiClient.GetVpc(node.Vpc_id, d.Get("project_id").(string), d.Get("region").(string))
+		vpc_details, err := apiClient.GetVpc(node.Vpc_id, d.Get("project_id").(string), d.Get("location").(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -409,7 +403,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	if d.Get("status").(string) == "Powered off" {
 		d.Set("power_status", "power_off")
 	}
-	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("region").(string))
+	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("location").(string))
 	if err != nil {
 		return diag.Errorf("error finding security groups")
 	}
@@ -562,7 +556,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 					SecurityGroupList: []int{key},
 				}
 
-				response, err := apiClient.DetachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("region").(string))
+				response, err := apiClient.DetachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("location").(string))
 				if err != nil {
 					return diag.FromErr(err)
 				}
@@ -579,7 +573,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			payload := models.UpdateSecurityGroups{
 				SecurityGroupList: toBeAttached,
 			}
-			response, err := apiClient.AttachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("region").(string))
+			response, err := apiClient.AttachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("location").(string))
 			if err != nil {
 				return diag.FromErr(err)
 			}

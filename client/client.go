@@ -490,7 +490,6 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id s
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
-	log.Printf("inside create vpc Json Response = %+v", err)
 
 	if err != nil {
 		return nil, err
@@ -817,9 +816,9 @@ func (c *Client) GetSecurityGroupList(project_id string, location string) (map[s
 	if err != nil {
 		return nil, err
 	}
-	projectIDInt, error := strconv.Atoi(project_id)
-	if error != nil {
-		return nil, error
+	projectIDInt, err := strconv.Atoi(project_id)
+	if err != nil {
+		return nil, err
 	}
 	addParamsAndHeaders(req, c.Api_key, c.Auth_token, projectIDInt, location)
 	response, err := c.HttpClient.Do(req)
