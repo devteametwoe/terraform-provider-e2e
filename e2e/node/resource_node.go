@@ -43,9 +43,10 @@ func ResourceNode() *schema.Resource {
 				Default:     "default",
 			},
 			"plan": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "name of the Plan",
+				Type:         schema.TypeString,
+				Required:     true,
+				Description:  "name of the Plan",
+				ValidateFunc: ValidatePlanName,
 			},
 			"backup": {
 				Type:        schema.TypeBool,
@@ -55,9 +56,10 @@ func ResourceNode() *schema.Resource {
 			},
 
 			"image": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "The name of the image you have selected format :- ( os-version )",
+				Type:         schema.TypeString,
+				Required:     true,
+				Description:  "The name of the image you have selected format :- ( os-version )",
+				ValidateFunc: ValidateImageName,
 			},
 			"default_public_ip": {
 				Type:        schema.TypeBool,
@@ -246,9 +248,9 @@ func ValidateName(v interface{}, k string) (ws []string, es []error) {
 		errs = append(errs, fmt.Errorf("expected name to be string"))
 		return warns, errs
 	}
-	whiteSpace := regexp.MustCompile(`\s+`)
-	if whiteSpace.Match([]byte(value)) {
-		errs = append(errs, fmt.Errorf("name cannot contain whitespace. Got %s", value))
+	validNameRegexp := regexp.MustCompile(`^[a-zA-Z0-9-_]{1,50}$`)
+	if !validNameRegexp.Match([]byte(value)) {
+		errs = append(errs, fmt.Errorf("name does not contains whitespace and special character (with length 1 to 50 character). Got %s", value))
 		return warns, errs
 	}
 	return warns, errs
@@ -283,7 +285,8 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	log.Printf("[INFO] NODE CREATE STARTS ")
 	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("location").(string))
 	if err != nil {
-		return diag.Errorf("error finding security groups. please confirm the project_id or location that you defined.")
+		log.Printf("[ERROR] Error getting Security Group List inside Node Create. Error : %s", err)
+		return diag.Errorf("please confirm the project_id or location that you defined.")
 	}
 	defaultSG := getDefaultSG(response)
 	d.Set("default_sg", defaultSG)
@@ -405,7 +408,8 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	}
 	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("location").(string))
 	if err != nil {
-		return diag.Errorf("error finding security groups")
+		log.Printf("[ERROR] Error getting Security Group List inside Node Read. Error : %s", err)
+		return diag.Errorf("please confirm the project_id or location that you defined.")
 	}
 	defaultSG := getDefaultSG(response)
 	d.Set("default_sg", defaultSG)
@@ -864,4 +868,42 @@ func waitForDesiredState(apiClient *client.Client, nodeId string, project_id str
 		}
 	}
 	return nil
+}
+
+func ValidatePlanName(v interface{}, k string) (ws []string, es []error) {
+
+	var errs []error
+	var warns []string
+	value, ok := v.(string)
+	if !ok {
+		errs = append(errs, fmt.Errorf("expected plan to be string"))
+		return warns, errs
+	}
+	if value == "" {
+		errs = append(errs, fmt.Errorf("plan name cannot be empty"))
+		return warns, errs
+	}
+
+	whiteSpace := regexp.MustCompile(`\s+`)
+	if whiteSpace.Match([]byte(value)) {
+		errs = append(errs, fmt.Errorf("Plan cannot contain whitespace. Got %s", value))
+		return warns, errs
+	}
+	return warns, errs
+}
+
+func ValidateImageName(v interface{}, k string) (ws []string, es []error) {
+
+	var errs []error
+	var warns []string
+	value, ok := v.(string)
+	if !ok {
+		errs = append(errs, fmt.Errorf("expected Image to be string"))
+		return warns, errs
+	}
+	if value == "" {
+		errs = append(errs, fmt.Errorf("Image name cannot be empty"))
+		return warns, errs
+	}
+	return warns, errs
 }
