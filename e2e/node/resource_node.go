@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceNode() *schema.Resource {
@@ -207,11 +208,15 @@ func ResourceNode() *schema.Resource {
 				Description: "The ID of the project associated with the node",
 			},
 			"location": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Default:      "Delhi",
-				Description:  "Location where you want to create node.(ex - \"Delhi\", \"Mumbai\").",
-				ValidateFunc: ValidateLocation,
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "Delhi",
+				Description: "Location where you want to create node.(ex - \"Delhi\", \"Mumbai\").",
+				ValidateFunc: validation.All(validation.StringInSlice([]string{
+					"Delhi",
+					"Mumbai",
+					"Delhi-NCR-2",
+				}, false), ValidateLocation),
 			},
 			"vm_id": {
 				Type:        schema.TypeInt,
@@ -289,6 +294,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
 	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("location").(string))
+	log.Printf("[INFO] GET Security groups | RESPONSE BODY | %+v", response)
 	if err != nil {
 		log.Printf("[ERROR] Error getting Security Group List inside Node Create. Error : %s", err)
 		return diag.Errorf("please confirm the project_id or location that you defined.")
