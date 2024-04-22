@@ -250,7 +250,7 @@ func ValidateName(v interface{}, k string) (ws []string, es []error) {
 	}
 	validNameRegexp := regexp.MustCompile(`^[a-zA-Z0-9-_]{1,50}$`)
 	if !validNameRegexp.Match([]byte(value)) {
-		errs = append(errs, fmt.Errorf("name does not contains whitespace and special character and The character length must be between 1 and 50. Got %s", value))
+		errs = append(errs, fmt.Errorf("name does not contains whitespace and special character and the character length must be between 1 and 50. got %s", value))
 		return warns, errs
 	}
 	return warns, errs
@@ -886,7 +886,7 @@ func ValidatePlanName(v interface{}, k string) (ws []string, es []error) {
 
 	whiteSpace := regexp.MustCompile(`\s+`)
 	if whiteSpace.Match([]byte(value)) {
-		errs = append(errs, fmt.Errorf("Plan cannot contain whitespace. Got %s", value))
+		errs = append(errs, fmt.Errorf("plan cannot contain whitespace. got %s", value))
 		return warns, errs
 	}
 	return warns, errs
@@ -901,8 +901,9 @@ func ValidateImageName(v interface{}, k string) (ws []string, es []error) {
 		errs = append(errs, fmt.Errorf("expected Image to be string"))
 		return warns, errs
 	}
-	if value == "" {
-		errs = append(errs, fmt.Errorf("Image name cannot be empty"))
+	stripped := strings.TrimSpace(value)
+	if stripped == "" {
+		errs = append(errs, fmt.Errorf("image name cannot be empty"))
 		return warns, errs
 	}
 	return warns, errs
