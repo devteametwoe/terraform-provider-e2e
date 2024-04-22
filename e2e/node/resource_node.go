@@ -260,7 +260,7 @@ func ValidateName(v interface{}, k string) (ws []string, es []error) {
 	}
 	validNameRegexp := regexp.MustCompile(`^[a-zA-Z0-9-_]{1,50}$`)
 	if !validNameRegexp.Match([]byte(value)) {
-		errs = append(errs, fmt.Errorf("name does not contains whitespace and special character and the character length must be between 1 and 50. got %s", value))
+		errs = append(errs, fmt.Errorf("the name field cannot be blank, must not contain whitespace or special characters, and must be between 1 and 50 characters in length. Got %s", value))
 		return warns, errs
 	}
 	return warns, errs
