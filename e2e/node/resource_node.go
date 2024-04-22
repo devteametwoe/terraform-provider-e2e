@@ -207,10 +207,11 @@ func ResourceNode() *schema.Resource {
 				Description: "The ID of the project associated with the node",
 			},
 			"location": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Default:     "Delhi",
-				Description: "Location where you want to create node.(ex - \"Delhi\", \"Mumbai\").",
+				Type:         schema.TypeString,
+				Optional:     true,
+				Default:      "Delhi",
+				Description:  "Location where you want to create node.(ex - \"Delhi\", \"Mumbai\").",
+				ValidateFunc: ValidateLocation,
 			},
 			"vm_id": {
 				Type:        schema.TypeInt,
@@ -246,6 +247,10 @@ func ValidateName(v interface{}, k string) (ws []string, es []error) {
 	value, ok := v.(string)
 	if !ok {
 		errs = append(errs, fmt.Errorf("expected name to be string"))
+		return warns, errs
+	}
+	if len(value) == 0 {
+		errs = append(errs, fmt.Errorf("name cannot be empty"))
 		return warns, errs
 	}
 	validNameRegexp := regexp.MustCompile(`^[a-zA-Z0-9-_]{1,50}$`)
@@ -904,6 +909,22 @@ func ValidateImageName(v interface{}, k string) (ws []string, es []error) {
 	stripped := strings.TrimSpace(value)
 	if stripped == "" {
 		errs = append(errs, fmt.Errorf("image name cannot be empty"))
+		return warns, errs
+	}
+	return warns, errs
+}
+
+func ValidateLocation(v interface{}, k string) (ws []string, es []error) {
+
+	var errs []error
+	var warns []string
+	value, ok := v.(string)
+	if !ok {
+		errs = append(errs, fmt.Errorf("expected location to be string"))
+		return warns, errs
+	}
+	if value == "" {
+		errs = append(errs, fmt.Errorf("location cannot be empty"))
 		return warns, errs
 	}
 	return warns, errs
