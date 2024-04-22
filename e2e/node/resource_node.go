@@ -212,11 +212,11 @@ func ResourceNode() *schema.Resource {
 				Optional:    true,
 				Default:     "Delhi",
 				Description: "Location where you want to create node.(ex - \"Delhi\", \"Mumbai\").",
-				ValidateFunc: validation.All(validation.StringInSlice([]string{
+				ValidateFunc: validation.StringInSlice([]string{
 					"Delhi",
 					"Mumbai",
 					"Delhi-NCR-2",
-				}, false), ValidateLocation),
+				}, false),
 			},
 			"vm_id": {
 				Type:        schema.TypeInt,
