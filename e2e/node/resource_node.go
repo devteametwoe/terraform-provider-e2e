@@ -910,12 +910,12 @@ func ValidateBlank(v interface{}, k string) (ws []string, es []error) {
 	var warns []string
 	value, ok := v.(string)
 	if !ok {
-		errs = append(errs, fmt.Errorf("expected value to be string"))
+		errs = append(errs, fmt.Errorf("expected %s to be string", k))
 		return warns, errs
 	}
 	stripped := strings.TrimSpace(value)
 	if stripped == "" {
-		errs = append(errs, fmt.Errorf("value name cannot be blank"))
+		errs = append(errs, fmt.Errorf("%s cannot be blank", k))
 		return warns, errs
 	}
 	return warns, errs
