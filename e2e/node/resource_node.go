@@ -395,7 +395,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	}
 	log.Printf("[info] node Resource read | before setting data")
 	data := node["data"].(map[string]interface{})
-
+	log.Printf("[info] node Resource read | data = %+v", data)
 	d.Set("name", data["name"].(string))
 	d.Set("label", data["label"].(string))
 	d.Set("plan", data["plan"].(string))
@@ -437,11 +437,14 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	nodeId := d.Id()
 	project_id := d.Get("project_id").(string)
 	location := d.Get("location").(string)
+	status := d.Get("status").(string)
+	if status == "Failed" {
+		rollbackChanges(d)
+		return diag.Errorf("node in failed state. please destroy the node and create a new one.")
+	}
 	_, err := apiClient.GetNode(nodeId, project_id)
 	if err != nil {
-
 		return diag.Errorf("error finding Item with ID %s", nodeId)
-
 	}
 
 	if d.HasChange("name") {
@@ -918,4 +921,55 @@ func ValidateBlank(v interface{}, k string) (ws []string, es []error) {
 		return warns, errs
 	}
 	return warns, errs
+}
+
+func rollbackChanges(d *schema.ResourceData) {
+	prevImage, _ := d.GetChange("image")
+	prevName, _ := d.GetChange("name")
+	prevPlan, _ := d.GetChange("plan")
+	prevLocation, _ := d.GetChange("location")
+	prevProjectId, _ := d.GetChange("project_id")
+	prevRegion, _ := d.GetChange("region")
+	prevLabel, _ := d.GetChange("label")
+	prevBackup, _ := d.GetChange("backup")
+	prevDefaultPublicIp, _ := d.GetChange("default_public_ip")
+	prevDisablePassword, _ := d.GetChange("disable_password")
+	prevEnableBitninja, _ := d.GetChange("enable_bitninja")
+	prevIsIpv6Availed, _ := d.GetChange("is_ipv6_availed")
+	prevIsSavedImage, _ := d.GetChange("is_saved_image")
+	prevReserveIp, _ := d.GetChange("reserve_ip")
+	prevSavedImageTemplateId, _ := d.GetChange("saved_image_template_id")
+	prevSshKey, _ := d.GetChange("ssh_keys")
+	prevVpcId, _ := d.GetChange("vpc_id")
+	prevBlockStorageIds, _ := d.GetChange("block_storage_ids")
+	prevSecurityGroupIds, _ := d.GetChange("security_groups_ids")
+	prevLockNode, _ := d.GetChange("lock_node")
+	prevPowerStatus, _ := d.GetChange("power_status")
+	prevRebootNode, _ := d.GetChange("reboot_node")
+	prevReinstallNode, _ := d.GetChange("reinstall_node")
+
+	d.Set("image", prevImage)
+	d.Set("name", prevName)
+	d.Set("plan", prevPlan)
+	d.Set("location", prevLocation)
+	d.Set("project_id", prevProjectId)
+	d.Set("region", prevRegion)
+	d.Set("label", prevLabel)
+	d.Set("backup", prevBackup)
+	d.Set("default_public_ip", prevDefaultPublicIp)
+	d.Set("disable_password", prevDisablePassword)
+	d.Set("enable_bitninja", prevEnableBitninja)
+	d.Set("is_ipv6_availed", prevIsIpv6Availed)
+	d.Set("is_saved_image", prevIsSavedImage)
+	d.Set("reserve_ip", prevReserveIp)
+	d.Set("saved_image_template_id", prevSavedImageTemplateId)
+	d.Set("ssh_keys", prevSshKey)
+	d.Set("vpc_id", prevVpcId)
+	d.Set("block_storage_ids", prevBlockStorageIds)
+	d.Set("security_group_ids", prevSecurityGroupIds)
+
+	d.Set("lock_node", prevLockNode)
+	d.Set("power_status", prevPowerStatus)
+	d.Set("reboot_node", prevRebootNode)
+	d.Set("reinstall_node", prevReinstallNode)
 }
