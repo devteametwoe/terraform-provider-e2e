@@ -60,7 +60,7 @@ func ResourceNode() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				Description:  "The name of the image you have selected format :- ( os-version )",
-				ValidateFunc: ValidateImageName,
+				ValidateFunc: ValidateBlank,
 			},
 			"default_public_ip": {
 				Type:        schema.TypeBool,
@@ -228,8 +228,9 @@ func ResourceNode() *schema.Resource {
 				Optional:    true,
 				Description: "The id of the block storage to be attached to the node",
 				Elem: &schema.Schema{
-					Type:        schema.TypeString,
-					Description: "ID of the block storage",
+					Type:         schema.TypeString,
+					Description:  "ID of the block storage",
+					ValidateFunc: ValidateBlank,
 				},
 			},
 		},
@@ -903,34 +904,18 @@ func ValidatePlanName(v interface{}, k string) (ws []string, es []error) {
 	return warns, errs
 }
 
-func ValidateImageName(v interface{}, k string) (ws []string, es []error) {
+func ValidateBlank(v interface{}, k string) (ws []string, es []error) {
 
 	var errs []error
 	var warns []string
 	value, ok := v.(string)
 	if !ok {
-		errs = append(errs, fmt.Errorf("expected Image to be string"))
+		errs = append(errs, fmt.Errorf("expected value to be string"))
 		return warns, errs
 	}
 	stripped := strings.TrimSpace(value)
 	if stripped == "" {
-		errs = append(errs, fmt.Errorf("image name cannot be empty"))
-		return warns, errs
-	}
-	return warns, errs
-}
-
-func ValidateLocation(v interface{}, k string) (ws []string, es []error) {
-
-	var errs []error
-	var warns []string
-	value, ok := v.(string)
-	if !ok {
-		errs = append(errs, fmt.Errorf("expected location to be string"))
-		return warns, errs
-	}
-	if value == "" {
-		errs = append(errs, fmt.Errorf("location cannot be empty"))
+		errs = append(errs, fmt.Errorf("value name cannot be blank"))
 		return warns, errs
 	}
 	return warns, errs
