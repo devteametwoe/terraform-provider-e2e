@@ -169,7 +169,12 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	blockStorageID := d.Id()
 	project_id := d.Get("project_id").(int)
 	location := d.Get("location").(string)
+	status := d.Get("status").(string)
 
+	if status == "ERROR" {
+		rollbackChanges(d)
+		return diag.Errorf("Block Storage is in ERROR state. Cannot be updated. please destroy and recreate")
+	}
 	blockStorage, err := apiClient.GetBlockStorage(blockStorageID, project_id, location)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -301,9 +306,12 @@ func resourceDeleteBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 	blockStorageID := d.Id()
-	node_status := d.Get("status").(string)
-	if node_status == "Saving" || node_status == "Creating" {
-		return diag.Errorf("Node in %s state", node_status)
+	status := d.Get("status").(string)
+	if status == "Saving" || status == "Creating" {
+		return diag.Errorf("Block storage in %s state", status)
+	}
+	if status == "Attached" {
+		return diag.Errorf("Block Storage is attached to a node. Detach it first")
 	}
 	err := apiClient.DeleteBlockStorage(blockStorageID, d.Get("project_id").(int), d.Get("location").(string))
 	if err != nil {
@@ -364,6 +372,11 @@ func waitForDetach(apiClient *client.Client, blockStorageID string, project_id i
 func validateSize(d *schema.ResourceData, m interface{}) error {
 	apiClient := m.(*client.Client)
 
+	_, err := apiClient.GetAllProjects(d.Get("project_id").(int), d.Get("location").(string))
+	if err != nil {
+		return err
+	}
+
 	resPlans, err := apiClient.GetBlockStoragePlans(d.Get("project_id").(int), d.Get("location").(string))
 
 	if err != nil {
@@ -392,4 +405,12 @@ func validateSize(d *schema.ResourceData, m interface{}) error {
 	}
 	return nil
 
+}
+
+func rollbackChanges(d *schema.ResourceData) {
+	prevName, _ := d.GetChange("name")
+	prevSize, _ := d.GetChange("size")
+
+	d.Set("name", prevName)
+	d.Set("size", prevSize)
 }
