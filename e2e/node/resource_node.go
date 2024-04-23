@@ -679,7 +679,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 		detachingIDs := UniqueArrayElements(prevBlockIDArray.([]interface{}), currBlockIDArray.([]interface{}))
 		attachingIDs := UniqueArrayElements(currBlockIDArray.([]interface{}), prevBlockIDArray.([]interface{}))
-		CommonIDs := detachingIDs
+		CommonIDs := prevBlockIDArray.([]interface{})
 		log.Printf("[INFO] detachingIDs %+v, attachingIDs %+v, CommonIDs %+v", detachingIDs, attachingIDs, CommonIDs)
 		log.Printf("[INFO] prevIDArray %v, currIDArray %v", prevBlockIDArray, currBlockIDArray)
 
@@ -702,11 +702,10 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			}
 			CommonIDs = removeArrayElement(CommonIDs, detachingID)
 			// Wait for some time before detaching the next block storage
-			// waitForPoweringOffOn(m, nodeId, project_id)
+			waitForDesiredState(apiClient, nodeId, project_id, location)
 			if i == len(detachingIDs)-1 {
 				break
 			}
-			waitForDesiredState(apiClient, nodeId, project_id, location)
 		}
 		for i, attachingID := range attachingIDs {
 			blockStorageID := attachingID.(string)
