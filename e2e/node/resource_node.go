@@ -230,7 +230,7 @@ func ResourceNode() *schema.Resource {
 				Elem: &schema.Schema{
 					Type:         schema.TypeString,
 					Description:  "ID of the block storage",
-					ValidateFunc: ValidateBlank,
+					ValidateFunc: validation.All(ValidateBlank, ValidateInteger),
 				},
 			},
 		},
@@ -918,6 +918,24 @@ func ValidateBlank(v interface{}, k string) (ws []string, es []error) {
 	stripped := strings.TrimSpace(value)
 	if stripped == "" {
 		errs = append(errs, fmt.Errorf("%s cannot be blank", k))
+		return warns, errs
+	}
+	return warns, errs
+}
+
+func ValidateInteger(v interface{}, k string) (ws []string, es []error) {
+	var errs []error
+	var warns []string
+
+	str, ok := v.(string)
+	if !ok {
+		errs = append(errs, fmt.Errorf("expected %s to be string", k))
+		return warns, errs
+	}
+	// validate block storage id ("123" -> correct, "abc" -> incorrect, "123abc" -> incorrect)
+	_, err := strconv.Atoi(str)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("%s only contains numeric value", k))
 		return warns, errs
 	}
 	return warns, errs
