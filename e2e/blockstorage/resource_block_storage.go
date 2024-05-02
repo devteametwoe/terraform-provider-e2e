@@ -196,64 +196,6 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 		return diag.Errorf("Project ID cannot be changed once the block storage is created")
 	}
 
-	if d.HasChange("vm_id") {
-		prevVMID, currVMID := d.GetChange("vm_id")
-		prevName, _ := d.GetChange("name")
-		prevSize, _ := d.GetChange("size")
-		log.Printf("[INFO] prevVMID %v, currVMID %v, type(currVMID) %T", prevVMID, currVMID, currVMID)
-
-		if d.Get("status") == "Attached" && prevVMID != "" {
-			vm_id, err := strconv.Atoi(prevVMID.(string))
-			if err != nil {
-				setPrevState(d, prevVMID, prevName, prevSize)
-				return diag.FromErr(err)
-			}
-			blockStorage := models.BlockStorageAttach{
-				VM_ID: vm_id,
-			}
-			res, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "detach", blockStorageID, project_id, location)
-			log.Printf("[INFO] BLOCK STORAGE DETACH | RESPONSE BODY | %+v", res)
-			if err != nil {
-				setPrevState(d, prevVMID, prevName, prevSize)
-				return diag.FromErr(err)
-			}
-			d.Set("status", "Available")
-			log.Printf("[INFO] BLOCK STORAGE DETACH | RESPONSE BODY | %+v", res)
-
-		}
-		waitForDetach(apiClient, blockStorageID, project_id, location)
-
-		if currVMID != "" && currVMID != nil {
-			if d.Get("status") == "Available" {
-				vm_id, err := strconv.Atoi(currVMID.(string))
-				if err != nil {
-					setPrevState(d, "", prevName, prevSize)
-					return diag.FromErr(err)
-				}
-				blockStorage := models.BlockStorageAttach{
-					VM_ID: vm_id,
-				}
-				resBlockStorage, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "attach", blockStorageID, project_id, location)
-				log.Printf("[INFO] BLOCK STORAGE ATTACH | RESPONSE BODY | %+v", resBlockStorage)
-				if err != nil {
-					setPrevState(d, "", prevName, prevSize)
-					return diag.FromErr(err)
-				}
-
-				log.Printf("[INFO] BLOCK STORAGE ATTACH | RESPONSE BODY | %+v", resBlockStorage)
-				if _, codeok := resBlockStorage["code"]; !codeok {
-					setPrevState(d, "", prevName, prevSize)
-					return diag.Errorf(resBlockStorage["message"].(string))
-				}
-				return diags
-			} else {
-				setPrevState(d, prevVMID, prevName, prevSize)
-				return diag.Errorf("block storage cannot be attached to a node unless it is in available state")
-			}
-		}
-
-	}
-
 	if d.HasChange("size") {
 		prevName, currName := d.GetChange("name")
 		prevSize, currSize := d.GetChange("size")
