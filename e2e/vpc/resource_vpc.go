@@ -41,7 +41,7 @@ func ResouceVpc() *schema.Resource {
 				Description: "ID of the project. It should be unique",
 			},
 			"network_size": {
-				Type:     schema.TypeFloat,
+				Type:     schema.TypeInt,
 				Optional: true,
 				Default:  512,
 			},
@@ -113,7 +113,7 @@ func ResourceCreateVpc(ctx context.Context, d *schema.ResourceData, m interface{
 
 	newvpc := models.VpcCreate{
 		VpcName:     d.Get("vpc_name").(string),
-		NetworkSize: d.Get("network_size").(float64),
+		NetworkSize: d.Get("network_size").(int),
 	}
 	resvpc, err := apiClient.CreateVpc(d.Get("location").(string), &newvpc, d.Get("project_id").(string))
 	if err != nil {

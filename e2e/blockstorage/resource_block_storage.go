@@ -254,7 +254,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 
 	}
 
-	if d.HasChange("size") || d.HasChange("name") {
+	if d.HasChange("size") {
 		prevName, currName := d.GetChange("name")
 		prevSize, currSize := d.GetChange("size")
 		err := validateSize(d, m)
@@ -292,12 +292,17 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 			}
 			d.Set("size", prevSize)
 			d.Set("name", prevName)
-			return diag.Errorf("You cannot change the block storage size and name unless you are upgrading it")
+			return diag.Errorf("You cannot change the block storage size unless you are upgrading it")
 		} else {
 			d.Set("size", prevSize)
 			d.Set("name", prevName)
-			return diag.Errorf("You cannot upgrade a block storage name or size unless it is attached to a node")
+			return diag.Errorf("You cannot upgrade a block storage size unless it is attached to a node")
 		}
+	}
+	if !d.HasChange("size") && d.HasChange("name") {
+		prevName, currName := d.GetChange("name")
+		d.Set("name", prevName)
+		return diag.Errorf("You cannot change the name of a blockstorage resource to %v after creation.", currName)
 	}
 	return resourceReadBlockStorage(ctx, d, m)
 }
