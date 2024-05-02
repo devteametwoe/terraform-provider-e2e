@@ -319,11 +319,6 @@ func waitForDetach(apiClient *client.Client, blockStorageID string, project_id i
 func validateSize(d *schema.ResourceData, m interface{}) error {
 	apiClient := m.(*client.Client)
 
-	_, err := apiClient.GetAllProjects(d.Get("project_id").(int), d.Get("location").(string))
-	if err != nil {
-		return err
-	}
-
 	resPlans, err := apiClient.GetBlockStoragePlans(d.Get("project_id").(int), d.Get("location").(string))
 
 	if err != nil {
