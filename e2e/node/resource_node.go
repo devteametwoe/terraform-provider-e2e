@@ -440,7 +440,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	status := d.Get("status").(string)
 	if status == "Failed" {
 		rollbackChanges(d)
-		return diag.Errorf("node in failed state. please destroy the node and create a new one.")
+		return diag.Errorf("node in failed state. please reach out to us at cloud-platform@e2enetworks.com")
 	}
 	_, err := apiClient.GetNode(nodeId, project_id)
 	if err != nil {
@@ -766,21 +766,7 @@ func resourceExistsNode(d *schema.ResourceData, m interface{}) (bool, error) {
 	return true, nil
 }
 
-func convertStringArrayToIntArray(strs []interface{}) ([]int, error) {
-	var res []int
-	for _, v := range strs {
-		i, err := convertStringToInt(v.(string))
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, i)
-	}
-	return res, nil
-}
 func convertStringToInt(str string) (int, error) {
-	if str == "" {
-		return 0, nil
-	}
 	i, err := strconv.Atoi(str)
 	if err != nil {
 		return 0, err

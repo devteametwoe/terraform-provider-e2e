@@ -173,7 +173,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 
 	if status == "ERROR" {
 		rollbackChanges(d)
-		return diag.Errorf("Block Storage is in ERROR state. Cannot be updated. please destroy and recreate")
+		return diag.Errorf("Block Storage is in ERROR state.")
 	}
 	blockStorage, err := apiClient.GetBlockStorage(blockStorageID, project_id, location)
 	if err != nil {
