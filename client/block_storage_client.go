@@ -233,34 +233,3 @@ func CheckResponseStatusForBlock(response *http.Response) error {
 	}
 	return nil
 }
-
-func (c *Client) GetAllProjects(project_id int, location string) (map[string]interface{}, error) {
-	url := c.Api_endpoint + "pbac/project/"
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, "")
-	response, err := c.HttpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("[INFO] CLIENT Get all project ids | after response %d", response.StatusCode)
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%v : project_id is not valid", response.StatusCode)
-	}
-	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
-	stringresponse := string(resBody)
-	log.Printf("%s", stringresponse)
-	resBytes := []byte(stringresponse)
-	var jsonRes map[string]interface{}
-	err = json.Unmarshal(resBytes, &jsonRes)
-
-	if err != nil {
-		log.Printf("[ERROR] CLIENT GET All Project Ids | error when unmarshalling")
-		return nil, err
-	}
-
-	return jsonRes, nil
-}
