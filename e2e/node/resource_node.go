@@ -438,7 +438,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	project_id := d.Get("project_id").(string)
 	location := d.Get("location").(string)
 	status := d.Get("status").(string)
-	if status == "Failed" {
+	if status == constants.NODE_STATUS_FAILED {
 		rollbackChanges(d)
 		return diag.Errorf("node in failed state. please reach out to us at cloud-platform@e2enetworks.com")
 	}
