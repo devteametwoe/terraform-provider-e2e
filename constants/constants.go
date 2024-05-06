@@ -36,3 +36,11 @@ var BLOCK_STORAGE_ACTION = map[string]string{
 	"ATTACH": "attach",
 	"DETACH": "detach",
 }
+
+var BLOCK_STORAGE_STATUS = map[string]string{
+	"ATTACHED":  "Attached",
+	"SAVING":    "Saving",
+	"CREATING":  "Creating",
+	"AVAILABLE": "Available",
+	"ERROR":     "ERROR",
+}
