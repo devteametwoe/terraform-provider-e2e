@@ -182,6 +182,10 @@ func ResourceNode() *schema.Resource {
 				Optional:    true,
 				Default:     "power_on",
 				Description: "power_on to start the node and power_off to power off the node",
+				ValidateFunc: validation.StringInSlice([]string{
+					"power_off",
+					"power_on",
+				}, false),
 			},
 			"lock_node": {
 				Type:        schema.TypeBool,
