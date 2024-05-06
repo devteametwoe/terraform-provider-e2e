@@ -7,24 +7,32 @@ const PREFIX_C2_NODE = "C2"
 // node
 //
 //	i) status
-const NODE_STATUS_RUNNING = "Running"
-const NODE_STATUS_REINSTALLING = "Reinstalling"
-const NODE_STATUS_CREATING = "Creating"
-const NODE_STATUS_FAILED = "Failed"
-const NODE_STATUS_POWERED_OFF = "Powered off"
-const NODE_STATUS_SAVING = "Saving"
+var NODE_STATUS = map[string]string{
+	"RUNNING":      "Running",
+	"REINSTALLING": "Reinstalling",
+	"CREATING":     "Creating",
+	"FAILED":       "Failed",
+	"POWERED_OFF":  "Powered off",
+	"SAVING":       "Saving",
+}
 
 // ii) power_status
-const NODE_POWER_STATUS_ON = "power_on"
-const NODE_POWER_STATUS_OFF = "power_off"
+var NODE_POWER_STATUS = map[string]string{
+	"ON":  "power_on",
+	"OFF": "power_off",
+}
 
 // iii) lcm_state
-const HOTPLUG_PROLOG_POWEROFF = "HOTPLUG_PROLOG_POWEROFF"
-const HOTPLUG_EPILOG_POWEROFF = "HOTPLUG_EPILOG_POWEROFF"
-const HOTPLUG = "Hotplug"
+var NODE_LCM_STATE = map[string]string{
+	"HOTPLUG_PROLOG_POWEROFF": "HOTPLUG_PROLOG_POWEROFF",
+	"HOTPLUG_EPILOG_POWEROFF": "HOTPLUG_EPILOG_POWEROFF",
+	"HOTPLUG":                 "Hotplug",
+}
 
 // block storage
 
 // i) action type
-const BLOCK_STORAGE_ACTION_ATTACH = "create"
-const BLOCK_STORAGE_ACTION_DETACH = "detach"
+var BLOCK_STORAGE_ACTION = map[string]string{
+	"ATTACH": "attach",
+	"DETACH": "detach",
+}

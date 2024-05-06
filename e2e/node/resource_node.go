@@ -327,7 +327,6 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		Enable_bitninja:   d.Get("enable_bitninja").(bool),
 		Is_ipv6_availed:   d.Get("is_ipv6_availed").(bool),
 		Is_saved_image:    d.Get("is_saved_image").(bool),
-		// Region:            d.Get("location").(string),
 		Reserve_ip:        d.Get("reserve_ip").(string),
 		Vpc_id:            d.Get("vpc_id").(string),
 		Security_group_id: security_group,
@@ -438,7 +437,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	project_id := d.Get("project_id").(string)
 	location := d.Get("location").(string)
 	status := d.Get("status").(string)
-	if status == constants.NODE_STATUS_FAILED {
+	if status == constants.NODE_STATUS["FAILED"] {
 		rollbackChanges(d)
 		return diag.Errorf("node in failed state. please reach out to us at cloud-platform@e2enetworks.com")
 	}
@@ -457,7 +456,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	if d.HasChange("power_status") {
 		nodestatus := d.Get("status").(string)
-		if nodestatus == constants.NODE_STATUS_CREATING || nodestatus == constants.NODE_STATUS_REINSTALLING {
+		if nodestatus == constants.NODE_STATUS["CREATING"] || nodestatus == constants.NODE_STATUS["REINSTALLING"] {
 			prevBlockIDArray, _ := d.GetChange("block_storage_ids")
 			d.Set("block_storage_ids", prevBlockIDArray)
 			return diag.Errorf("Node is in %s state", d.Get("status").(string))
@@ -470,7 +469,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if d.HasChange("lock_node") {
-		if d.Get("status").(string) == constants.NODE_STATUS_CREATING || d.Get("status").(string) == constants.NODE_STATUS_REINSTALLING {
+		if d.Get("status").(string) == constants.NODE_STATUS["CREATING"] || d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
 			return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
 		}
 		if d.Get("lock_node").(bool) {
@@ -489,12 +488,12 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	if d.HasChange("reboot_node") {
 
-		if d.Get("reboot_node").(bool) == true {
+		if d.Get("reboot_node").(bool) {
 			d.Set("reboot_node", false)
-			if d.Get("status").(string) == constants.NODE_STATUS_CREATING || d.Get("status").(string) == constants.NODE_STATUS_REINSTALLING {
+			if d.Get("status").(string) == constants.NODE_STATUS["CREATING"] || d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
 				return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
 			}
-			if d.Get("status").(string) == constants.NODE_STATUS_POWERED_OFF {
+			if d.Get("status").(string) == constants.NODE_STATUS["POWERED_OFF"] {
 				return diag.Errorf("cannot reboot as the node is powered off")
 			}
 			_, err := apiClient.UpdateNode(nodeId, "reboot", d.Get("name").(string), project_id)
@@ -504,10 +503,10 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 	if d.HasChange("reinstall_node") {
-		if d.Get("status").(string) == constants.NODE_STATUS_CREATING {
+		if d.Get("status").(string) == constants.NODE_STATUS["CREATING"] {
 			return diag.Errorf("Node is in creating state")
 		}
-		if d.Get("status").(string) == constants.NODE_STATUS_REINSTALLING {
+		if d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
 			return diag.Errorf("Node already in Reinstalling state")
 		}
 		if d.Get("reinstall_node").(bool) {
@@ -515,7 +514,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 				d.Set("reinstall_node", false)
 				return diag.Errorf("cannot reinstall as the node is powered off")
 			}
-			if d.Get("status").(string) == constants.NODE_STATUS_REINSTALLING {
+			if d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
 				d.Set("reinstall_node", false)
 				return diag.Errorf("Node already in Reinstalling state")
 			}
@@ -651,7 +650,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
 
-		if d.Get("status").(string) != constants.NODE_STATUS_POWERED_OFF {
+		if d.Get("status").(string) != constants.NODE_STATUS["POWERED_OFF"] {
 			d.Set("plan", prevPlan)
 			return diag.Errorf("cannot Upgrade as the node is not powered off")
 		}
@@ -698,7 +697,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		for i, detachingID := range detachingIDs {
 
 			blockStorageID := detachingID.(string)
-			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, constants.BLOCK_STORAGE_ACTION_DETACH, blockStorageID, project_id_int, location)
+			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, constants.BLOCK_STORAGE_ACTION["DETACH"], blockStorageID, project_id_int, location)
 			if err != nil {
 				d.Set("block_storage_ids", CommonIDs)
 				return diag.FromErr(err)
@@ -712,7 +711,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 		for i, attachingID := range attachingIDs {
 			blockStorageID := attachingID.(string)
-			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, constants.BLOCK_STORAGE_ACTION_ATTACH, blockStorageID, project_id_int, location)
+			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, constants.BLOCK_STORAGE_ACTION["ATTACH"], blockStorageID, project_id_int, location)
 			if err != nil {
 				d.Set("block_storage_ids", CommonIDs)
 				log.Printf("[ERROR] Error attaching block storage CommonIDs = %+v", CommonIDs)
@@ -738,7 +737,7 @@ func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface
 	nodeId := d.Id()
 	project_id := d.Get("project_id").(string)
 	node_status := d.Get("status").(string)
-	if node_status == constants.NODE_STATUS_SAVING || node_status == constants.NODE_STATUS_CREATING {
+	if node_status == constants.NODE_STATUS["SAVING"] || node_status == constants.NODE_STATUS["CREATING"] {
 		return diag.Errorf("Node in %s state", node_status)
 	}
 	err := apiClient.DeleteNode(nodeId, project_id, d.Get("location").(string))
@@ -788,7 +787,7 @@ func waitForPoweringOffOn(m interface{}, nodeId string, project_id string) error
 		}
 		data := nodeInfo["data"].(map[string]interface{})
 		log.Printf("[INFO] Node Status : %s", data["status"])
-		if data["status"] == constants.NODE_STATUS_RUNNING || data["status"] == constants.NODE_STATUS_POWERED_OFF {
+		if data["status"] == constants.NODE_STATUS["RUNNING"] || data["status"] == constants.NODE_STATUS["POWERED_OFF"] {
 			break
 		}
 		log.Printf("[INFO] Waiting for Node to power off/on before upgrading the plan")
@@ -863,7 +862,7 @@ func waitForDesiredState(apiClient *client.Client, nodeId string, project_id str
 		}
 		data := response["data"].(map[string]interface{})
 		log.Printf("[INFO] waitForDesiredState data : %+v", data)
-		if !(data["lcm_state"].(string) == constants.HOTPLUG || data["lcm_state"].(string) == constants.HOTPLUG_PROLOG_POWEROFF || data["lcm_state"].(string) == constants.HOTPLUG_EPILOG_POWEROFF) {
+		if !(data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG"] || data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG_PROLOG_POWEROFF"] || data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG_EPILOG_POWEROFF"]) {
 			break
 		}
 	}
