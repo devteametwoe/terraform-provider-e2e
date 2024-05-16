@@ -297,25 +297,10 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 			return diag.FromErr(err)
 		}
 		image_id = image_id_temp
-
-		project_id_string, err := convertStringToInt(d.Get("project_id").(string))
-		if err != nil {
-			return diag.FromErr(err)
+		Error := checkBlockStorage(m, image_id_string, d.Get("project_id").(string), d.Get("location").(string))
+		if Error != nil {
+			return Error
 		}
-		blockStorage, err := apiClient.GetBlockStorage(image_id_string, project_id_string, d.Get("location").(string))
-		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				d.SetId("")
-				return diags
-			}
-			return diag.Errorf("error finding Block Storage with ID %v: %s", image_id, err.Error())
-		}
-		data := blockStorage["data"].(map[string]interface{})
-
-		if data["status"] != constants.BLOCK_STORAGE_STATUS["AVAILABLE"] {
-			return diag.Errorf("Block Storage is in %s state, it must be in %s state", data["status"], constants.BLOCK_STORAGE_STATUS["AVAILABLE"])
-		}
-
 	}
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
@@ -736,6 +721,12 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 		for i, attachingID := range attachingIDs {
 			blockStorageID := attachingID.(string)
+			Error := checkBlockStorage(m, blockStorageID, d.Get("project_id").(string), d.Get("location").(string))
+			if Error != nil {
+				d.Set("block_storage_ids", CommonIDs)
+				log.Printf("[ERROR] Error attaching block storage CommonIDs = %+v", CommonIDs)
+				return Error
+			}
 			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, constants.BLOCK_STORAGE_ACTION["ATTACH"], blockStorageID, project_id_int, location)
 			if err != nil {
 				d.Set("block_storage_ids", CommonIDs)
