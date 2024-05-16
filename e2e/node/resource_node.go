@@ -290,11 +290,32 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		if d.Get("plan").(string)[0:2] == constants.PREFIX_C2_NODE {
 			return diag.Errorf("Block storage can not be attached to C2 plan")
 		}
-		image_id_temp, err := convertStringToInt(d.Get("block_storage_ids").([]interface{})[0].(string))
+		image_id_string := d.Get("block_storage_ids").([]interface{})[0].(string)
+
+		image_id_temp, err := convertStringToInt(image_id_string)
 		if err != nil {
 			return diag.FromErr(err)
 		}
 		image_id = image_id_temp
+
+		project_id_string, err := convertStringToInt(d.Get("project_id").(string))
+		if err != nil {
+			return diag.FromErr(err)
+		}
+		blockStorage, err := apiClient.GetBlockStorage(image_id_string, project_id_string, d.Get("location").(string))
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				d.SetId("")
+				return diags
+			}
+			return diag.Errorf("error finding Block Storage with ID %v: %s", image_id, err.Error())
+		}
+		data := blockStorage["data"].(map[string]interface{})
+
+		if data["status"] != constants.BLOCK_STORAGE_STATUS["AVAILABLE"] {
+			return diag.Errorf("Block Storage is in %s state, it must be in %s state", data["status"], constants.BLOCK_STORAGE_STATUS["AVAILABLE"])
+		}
+
 	}
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
