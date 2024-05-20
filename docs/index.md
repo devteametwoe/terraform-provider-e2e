@@ -19,7 +19,7 @@ terraform {
  required_providers {
    e2e = {
      source = "e2eterraformprovider/e2e"
-     version = "2.1.14"
+     version = "2.1.15"
    }
  }
 }

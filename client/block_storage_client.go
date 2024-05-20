@@ -223,6 +223,7 @@ func addParamsAndHeaders(req *http.Request, Api_key string, Auth_token string, p
 }
 
 func CheckResponseStatusForBlock(response *http.Response) error {
+	log.Printf("[INFO] CLIENT | CHECK RESPONSE STATUS FOR BLOCK response = %+v", response)
 	if response.StatusCode != http.StatusOK {
 		var errorResponse models.ErrorResponse
 		if err := json.NewDecoder(response.Body).Decode(&errorResponse); err != nil {

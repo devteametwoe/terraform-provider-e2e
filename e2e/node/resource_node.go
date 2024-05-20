@@ -14,6 +14,8 @@ import (
 
 	//"time"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/constants"
+
 	// "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/security_group"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 
@@ -22,6 +24,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceNode() *schema.Resource {
@@ -41,9 +44,10 @@ func ResourceNode() *schema.Resource {
 				Default:     "default",
 			},
 			"plan": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "name of the Plan",
+				Type:         schema.TypeString,
+				Required:     true,
+				Description:  "name of the Plan",
+				ValidateFunc: ValidatePlanName,
 			},
 			"backup": {
 				Type:        schema.TypeBool,
@@ -53,9 +57,10 @@ func ResourceNode() *schema.Resource {
 			},
 
 			"image": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "The name of the image you have selected format :- ( os-version )",
+				Type:         schema.TypeString,
+				Required:     true,
+				Description:  "The name of the image you have selected format :- ( os-version )",
+				ValidateFunc: ValidateBlank,
 			},
 			"default_public_ip": {
 				Type:        schema.TypeBool,
@@ -91,12 +96,6 @@ func ResourceNode() *schema.Resource {
 				Type:     schema.TypeList,
 				Optional: true,
 				Elem:     &schema.Schema{Type: schema.TypeString},
-			},
-			"region": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "region",
-				Default:     "ncr",
 			},
 			"reserve_ip": {
 				Type:        schema.TypeString,
@@ -183,6 +182,10 @@ func ResourceNode() *schema.Resource {
 				Optional:    true,
 				Default:     "power_on",
 				Description: "power_on to start the node and power_off to power off the node",
+				ValidateFunc: validation.StringInSlice([]string{
+					"power_off",
+					"power_on",
+				}, false),
 			},
 			"lock_node": {
 				Type:        schema.TypeBool,
@@ -213,16 +216,26 @@ func ResourceNode() *schema.Resource {
 				Optional:    true,
 				Default:     "Delhi",
 				Description: "Location where you want to create node.(ex - \"Delhi\", \"Mumbai\").",
+				ValidateFunc: validation.StringInSlice([]string{
+					"Delhi",
+					"Mumbai",
+					"Delhi-NCR-2",
+				}, false),
 			},
 			"vm_id": {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "The id of the VM.",
 			},
-			"block_storage_id": {
-				Type:        schema.TypeString,
+			"block_storage_ids": {
+				Type:        schema.TypeList,
 				Optional:    true,
 				Description: "The id of the block storage to be attached to the node",
+				Elem: &schema.Schema{
+					Type:         schema.TypeString,
+					Description:  "ID of the block storage",
+					ValidateFunc: validation.All(ValidateBlank, ValidateInteger),
+				},
 			},
 		},
 
@@ -246,9 +259,13 @@ func ValidateName(v interface{}, k string) (ws []string, es []error) {
 		errs = append(errs, fmt.Errorf("expected name to be string"))
 		return warns, errs
 	}
-	whiteSpace := regexp.MustCompile(`\s+`)
-	if whiteSpace.Match([]byte(value)) {
-		errs = append(errs, fmt.Errorf("name cannot contain whitespace. Got %s", value))
+	if len(value) == 0 {
+		errs = append(errs, fmt.Errorf("name cannot be empty"))
+		return warns, errs
+	}
+	validNameRegexp := regexp.MustCompile(`^[a-zA-Z0-9-_]{1,50}$`)
+	if !validNameRegexp.Match([]byte(value)) {
+		errs = append(errs, fmt.Errorf("the name field cannot be blank, must not contain whitespace or special characters, and must be between 1 and 50 characters in length. Got %s", value))
 		return warns, errs
 	}
 	return warns, errs
@@ -265,14 +282,33 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 	d.Set("ssh_keys", new_SSH_keys)
 
-	image_id, err := convertStringToInt(d.Get("block_storage_id").(string))
-	if err != nil {
-		return diag.FromErr(err)
+	if len(d.Get("block_storage_ids").([]interface{})) > 1 {
+		return diag.Errorf("Can only attach a single block storage while node creation.")
 	}
+	image_id := 0
+	if len(d.Get("block_storage_ids").([]interface{})) == 1 {
+		if d.Get("plan").(string)[0:2] == constants.PREFIX_C2_NODE {
+			return diag.Errorf("Block storage can not be attached to C2 plan")
+		}
+		image_id_string := d.Get("block_storage_ids").([]interface{})[0].(string)
+
+		image_id_temp, err := convertStringToInt(image_id_string)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+		image_id = image_id_temp
+		Error := checkBlockStorage(m, image_id_string, d.Get("project_id").(string), d.Get("location").(string))
+		if Error != nil {
+			return Error
+		}
+	}
+
 	log.Printf("[INFO] NODE CREATE STARTS ")
 	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("location").(string))
+	log.Printf("[INFO] GET Security groups | RESPONSE BODY | %+v", response)
 	if err != nil {
-		return diag.Errorf("error finding security groups. please confirm the project_id or location that you defined.")
+		log.Printf("[ERROR] Error getting Security Group List inside Node Create. Error : %s", err)
+		return diag.Errorf("please confirm the project_id or location that you defined.")
 	}
 	defaultSG := getDefaultSG(response)
 	d.Set("default_sg", defaultSG)
@@ -301,7 +337,6 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		Enable_bitninja:   d.Get("enable_bitninja").(bool),
 		Is_ipv6_availed:   d.Get("is_ipv6_availed").(bool),
 		Is_saved_image:    d.Get("is_saved_image").(bool),
-		Region:            d.Get("region").(string),
 		Reserve_ip:        d.Get("reserve_ip").(string),
 		Vpc_id:            d.Get("vpc_id").(string),
 		Security_group_id: security_group,
@@ -311,7 +346,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if node.Vpc_id != "" {
-		vpc_details, err := apiClient.GetVpc(node.Vpc_id, d.Get("project_id").(string), d.Get("region").(string))
+		vpc_details, err := apiClient.GetVpc(node.Vpc_id, d.Get("project_id").(string), d.Get("location").(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -369,7 +404,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	}
 	log.Printf("[info] node Resource read | before setting data")
 	data := node["data"].(map[string]interface{})
-
+	log.Printf("[info] node Resource read | data = %+v", data)
 	d.Set("name", data["name"].(string))
 	d.Set("label", data["label"].(string))
 	d.Set("plan", data["plan"].(string))
@@ -386,15 +421,16 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	d.Set("vm_id", int(data["vm_id"].(float64)))
 
 	log.Printf("[info] node Resource read | after setting data")
-	if d.Get("status").(string) == "Running" {
+	if d.Get("status").(string) == "Running" || d.Get("status").(string) == "Creating" {
 		d.Set("power_status", "power_on")
 	}
 	if d.Get("status").(string) == "Powered off" {
 		d.Set("power_status", "power_off")
 	}
-	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("region").(string))
+	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("location").(string))
 	if err != nil {
-		return diag.Errorf("error finding security groups")
+		log.Printf("[ERROR] Error getting Security Group List inside Node Read. Error : %s", err)
+		return diag.Errorf("please confirm the project_id or location that you defined.")
 	}
 	defaultSG := getDefaultSG(response)
 	d.Set("default_sg", defaultSG)
@@ -410,11 +446,14 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	nodeId := d.Id()
 	project_id := d.Get("project_id").(string)
 	location := d.Get("location").(string)
+	status := d.Get("status").(string)
+	if status == constants.NODE_STATUS["FAILED"] {
+		rollbackChanges(d)
+		return diag.Errorf("node in failed state. please reach out to us at cloud-platform@e2enetworks.com")
+	}
 	_, err := apiClient.GetNode(nodeId, project_id)
 	if err != nil {
-
 		return diag.Errorf("error finding Item with ID %s", nodeId)
-
 	}
 
 	if d.HasChange("name") {
@@ -427,10 +466,12 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	if d.HasChange("power_status") {
 		nodestatus := d.Get("status").(string)
-		if nodestatus == "Creating" || nodestatus == "Reinstalling" {
+		if nodestatus == constants.NODE_STATUS["CREATING"] || nodestatus == constants.NODE_STATUS["REINSTALLING"] {
+			prevBlockIDArray, _ := d.GetChange("block_storage_ids")
+			d.Set("block_storage_ids", prevBlockIDArray)
 			return diag.Errorf("Node is in %s state", d.Get("status").(string))
 		}
-		if d.Get("lock_node").(bool) == true {
+		if d.Get("lock_node").(bool) {
 			return diag.Errorf("cannot change the power status as the node is locked")
 		}
 		log.Printf("[INFO] %s ", d.Get("power_status").(string))
@@ -438,16 +479,16 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if d.HasChange("lock_node") {
-		if d.Get("status").(string) == "Creating" || d.Get("status").(string) == "Reinstalling" {
+		if d.Get("status").(string) == constants.NODE_STATUS["CREATING"] || d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
 			return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
 		}
-		if d.Get("lock_node").(bool) == true {
+		if d.Get("lock_node").(bool) {
 			_, err := apiClient.UpdateNode(nodeId, "lock_vm", d.Get("name").(string), project_id)
 			if err != nil {
 				return diag.FromErr(err)
 			}
 		}
-		if d.Get("lock_node").(bool) == false {
+		if !d.Get("lock_node").(bool) {
 			_, err := apiClient.UpdateNode(nodeId, "unlock_vm", d.Get("name").(string), project_id)
 			if err != nil {
 				return diag.FromErr(err)
@@ -457,12 +498,12 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	if d.HasChange("reboot_node") {
 
-		if d.Get("reboot_node").(bool) == true {
+		if d.Get("reboot_node").(bool) {
 			d.Set("reboot_node", false)
-			if d.Get("status").(string) == "Creating" || d.Get("status").(string) == "Reinstalling" {
+			if d.Get("status").(string) == constants.NODE_STATUS["CREATING"] || d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
 				return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
 			}
-			if d.Get("status").(string) == "Powered off" {
+			if d.Get("status").(string) == constants.NODE_STATUS["POWERED_OFF"] {
 				return diag.Errorf("cannot reboot as the node is powered off")
 			}
 			_, err := apiClient.UpdateNode(nodeId, "reboot", d.Get("name").(string), project_id)
@@ -472,18 +513,18 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 	if d.HasChange("reinstall_node") {
-		if d.Get("status").(string) == "Creating" {
+		if d.Get("status").(string) == constants.NODE_STATUS["CREATING"] {
 			return diag.Errorf("Node is in creating state")
 		}
-		if d.Get("status").(string) == "Reinstalling" {
+		if d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
 			return diag.Errorf("Node already in Reinstalling state")
 		}
-		if d.Get("reinstall_node").(bool) == true {
+		if d.Get("reinstall_node").(bool) {
 			if d.Get("status").(string) == "Powered off" {
 				d.Set("reinstall_node", false)
 				return diag.Errorf("cannot reinstall as the node is powered off")
 			}
-			if d.Get("status").(string) == "Reinstalling" {
+			if d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
 				d.Set("reinstall_node", false)
 				return diag.Errorf("Node already in Reinstalling state")
 			}
@@ -543,7 +584,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 					SecurityGroupList: []int{key},
 				}
 
-				response, err := apiClient.DetachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("region").(string))
+				response, err := apiClient.DetachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("location").(string))
 				if err != nil {
 					return diag.FromErr(err)
 				}
@@ -560,7 +601,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			payload := models.UpdateSecurityGroups{
 				SecurityGroupList: toBeAttached,
 			}
-			response, err := apiClient.AttachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("region").(string))
+			response, err := apiClient.AttachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("location").(string))
 			if err != nil {
 				return diag.FromErr(err)
 			}
@@ -619,7 +660,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
 
-		if d.Get("status").(string) != "Powered off" {
+		if d.Get("status").(string) != constants.NODE_STATUS["POWERED_OFF"] {
 			d.Set("plan", prevPlan)
 			return diag.Errorf("cannot Upgrade as the node is not powered off")
 		}
@@ -631,7 +672,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
-	if d.HasChange("block_storage_id") {
+	if d.HasChange("block_storage_ids") {
 
 		log.Printf("[INFO] Power_status changeing is = %v", d.HasChange("power_status"))
 		if d.HasChange("power_status") {
@@ -641,32 +682,64 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			}
 		}
 
-		prevBlockID, currBlockID := d.GetChange("block_storage_id")
-		log.Printf("[INFO] prevID %v, currID %v", prevBlockID, currBlockID)
+		prevBlockIDArray, currBlockIDArray := d.GetChange("block_storage_ids")
+
+		if d.Get("plan").(string)[0:2] == constants.PREFIX_C2_NODE {
+			d.Set("block_storage_ids", prevBlockIDArray)
+			return diag.Errorf("Block storage can not be attached to C2 plan")
+		}
+
+		detachingIDs := UniqueArrayElements(prevBlockIDArray.([]interface{}), currBlockIDArray.([]interface{}))
+		attachingIDs := UniqueArrayElements(currBlockIDArray.([]interface{}), prevBlockIDArray.([]interface{}))
+		CommonIDs := prevBlockIDArray.([]interface{})
+		log.Printf("[INFO] detachingIDs %+v, attachingIDs %+v, CommonIDs %+v", detachingIDs, attachingIDs, CommonIDs)
+		log.Printf("[INFO] prevIDArray %v, currIDArray %v", prevBlockIDArray, currBlockIDArray)
+
 		blockStorage := models.BlockStorageAttach{
 			VM_ID: d.Get("vm_id").(int),
 		}
 		project_id_int, Err := strconv.Atoi(project_id)
 		if Err != nil {
-			d.Set("block_storage_id", prevBlockID)
+			d.Set("block_storage_ids", prevBlockIDArray)
 			return diag.FromErr(Err)
 		}
 
-		if prevBlockID != "" && prevBlockID != nil {
-			blockStorageID := prevBlockID.(string)
-			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "detach", blockStorageID, project_id_int, location)
+		for i, detachingID := range detachingIDs {
+
+			blockStorageID := detachingID.(string)
+			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, constants.BLOCK_STORAGE_ACTION["DETACH"], blockStorageID, project_id_int, location)
 			if err != nil {
-				d.Set("block_storage_id", prevBlockID)
+				d.Set("block_storage_ids", CommonIDs)
 				return diag.FromErr(err)
+			}
+			CommonIDs = removeArrayElement(CommonIDs, detachingID)
+			// Wait for some time before detaching the next block storage
+			waitForDesiredState(apiClient, nodeId, project_id, location)
+			if i == len(detachingIDs)-1 {
+				break
 			}
 		}
-		if currBlockID != "" && currBlockID != nil {
-			blockStorageID := currBlockID.(string)
-			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "attach", blockStorageID, project_id_int, location)
+		for i, attachingID := range attachingIDs {
+			blockStorageID := attachingID.(string)
+			Error := checkBlockStorage(m, blockStorageID, d.Get("project_id").(string), d.Get("location").(string))
+			if Error != nil {
+				d.Set("block_storage_ids", CommonIDs)
+				log.Printf("[ERROR] Error attaching block storage CommonIDs = %+v", CommonIDs)
+				return Error
+			}
+			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, constants.BLOCK_STORAGE_ACTION["ATTACH"], blockStorageID, project_id_int, location)
 			if err != nil {
-				d.Set("block_storage_id", "")
+				d.Set("block_storage_ids", CommonIDs)
+				log.Printf("[ERROR] Error attaching block storage CommonIDs = %+v", CommonIDs)
 				return diag.FromErr(err)
 			}
+			CommonIDs = append(CommonIDs, attachingID)
+			// Wait for some time before attaching the next block storage
+			// waitForPoweringOffOn(m, nodeId, project_id)
+			if i == len(attachingIDs)-1 {
+				break
+			}
+			waitForDesiredState(apiClient, nodeId, project_id, location)
 		}
 	}
 
@@ -680,7 +753,7 @@ func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface
 	nodeId := d.Id()
 	project_id := d.Get("project_id").(string)
 	node_status := d.Get("status").(string)
-	if node_status == "Saving" || node_status == "Creating" {
+	if node_status == constants.NODE_STATUS["SAVING"] || node_status == constants.NODE_STATUS["CREATING"] {
 		return diag.Errorf("Node in %s state", node_status)
 	}
 	err := apiClient.DeleteNode(nodeId, project_id, d.Get("location").(string))
@@ -709,9 +782,6 @@ func resourceExistsNode(d *schema.ResourceData, m interface{}) (bool, error) {
 }
 
 func convertStringToInt(str string) (int, error) {
-	if str == "" {
-		return 0, nil
-	}
 	i, err := strconv.Atoi(str)
 	if err != nil {
 		return 0, err
@@ -723,8 +793,8 @@ func waitForPoweringOffOn(m interface{}, nodeId string, project_id string) error
 	apiClient := m.(*client.Client)
 
 	for {
-		// Wait for 2 seconds before checking the status again (is Node powered on or off?)
-		time.Sleep(2 * time.Second)
+		// Wait for some time before checking the status again (is Node powered on or off?)
+		time.Sleep(constants.WAIT_TIMEOUT * time.Second)
 
 		nodeInfo, err := apiClient.GetNode(nodeId, project_id)
 		if err != nil {
@@ -732,7 +802,8 @@ func waitForPoweringOffOn(m interface{}, nodeId string, project_id string) error
 			return err
 		}
 		data := nodeInfo["data"].(map[string]interface{})
-		if !(data["status"] == "Powering on" || data["status"] == "Powering off") {
+		log.Printf("[INFO] Node Status : %s", data["status"])
+		if data["status"] == constants.NODE_STATUS["RUNNING"] || data["status"] == constants.NODE_STATUS["POWERED_OFF"] {
 			break
 		}
 		log.Printf("[INFO] Waiting for Node to power off/on before upgrading the plan")
@@ -754,4 +825,170 @@ func getDefaultSG(response map[string]interface{}) int {
 	}
 	log.Printf("------------Default security group is: %+v -------------", res)
 	return res
+}
+
+func UniqueArrayElements(arr1 []interface{}, arr2 []interface{}) []interface{} {
+	var res []interface{}
+	for _, v := range arr1 {
+		if !isContains(arr2, v) {
+			res = append(res, v)
+		}
+	}
+	return res
+}
+
+func isContains(arr []interface{}, val interface{}) bool {
+	for _, v := range arr {
+		if v == val {
+			return true
+		}
+	}
+	return false
+}
+
+func CommonArrayElements(arr1 []interface{}, arr2 []interface{}) []interface{} {
+	var res []interface{}
+	for _, v := range arr1 {
+		if isContains(arr2, v) {
+			res = append(res, v)
+		}
+	}
+	return res
+}
+
+func removeArrayElement(arr []interface{}, val interface{}) []interface{} {
+	var res []interface{}
+	for _, v := range arr {
+		if v != val {
+			res = append(res, v)
+		}
+	}
+	return res
+}
+
+func waitForDesiredState(apiClient *client.Client, nodeId string, project_id string, location string) diag.Diagnostics {
+	for {
+		// Wait for some time before checking the status again (is Volume Detached?)
+		time.Sleep(constants.WAIT_TIMEOUT * time.Second)
+
+		response, err := apiClient.CheckNodeLCMState(nodeId, project_id, location)
+		if err != nil {
+			log.Printf("[ERROR] Error getting lcm_state %s", err)
+			return diag.FromErr(err)
+		}
+		data := response["data"].(map[string]interface{})
+		log.Printf("[INFO] waitForDesiredState data : %+v", data)
+		if !(data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG"] || data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG_PROLOG_POWEROFF"] || data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG_EPILOG_POWEROFF"]) {
+			break
+		}
+	}
+	return nil
+}
+
+func ValidatePlanName(v interface{}, k string) (ws []string, es []error) {
+
+	var errs []error
+	var warns []string
+	value, ok := v.(string)
+	if !ok {
+		errs = append(errs, fmt.Errorf("expected plan to be string"))
+		return warns, errs
+	}
+	if value == "" {
+		errs = append(errs, fmt.Errorf("plan name cannot be empty"))
+		return warns, errs
+	}
+
+	whiteSpace := regexp.MustCompile(`\s+`)
+	if whiteSpace.Match([]byte(value)) {
+		errs = append(errs, fmt.Errorf("plan cannot contain whitespace. got %s", value))
+		return warns, errs
+	}
+	return warns, errs
+}
+
+func ValidateBlank(v interface{}, k string) (ws []string, es []error) {
+
+	var errs []error
+	var warns []string
+	value, ok := v.(string)
+	if !ok {
+		errs = append(errs, fmt.Errorf("expected %s to be string", k))
+		return warns, errs
+	}
+	stripped := strings.TrimSpace(value)
+	if stripped == "" {
+		errs = append(errs, fmt.Errorf("%s cannot be blank", k))
+		return warns, errs
+	}
+	return warns, errs
+}
+
+func ValidateInteger(v interface{}, k string) (ws []string, es []error) {
+	var errs []error
+	var warns []string
+
+	str, ok := v.(string)
+	if !ok {
+		errs = append(errs, fmt.Errorf("expected %s to be string", k))
+		return warns, errs
+	}
+	// validate block storage id ("123" -> correct, "abc" -> incorrect, "123abc" -> incorrect)
+	_, err := strconv.Atoi(str)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("%s only contains numeric value", k))
+		return warns, errs
+	}
+	return warns, errs
+}
+
+func rollbackChanges(d *schema.ResourceData) {
+	prevImage, _ := d.GetChange("image")
+	prevName, _ := d.GetChange("name")
+	prevPlan, _ := d.GetChange("plan")
+	prevLocation, _ := d.GetChange("location")
+	prevProjectId, _ := d.GetChange("project_id")
+	prevRegion, _ := d.GetChange("region")
+	prevLabel, _ := d.GetChange("label")
+	prevBackup, _ := d.GetChange("backup")
+	prevDefaultPublicIp, _ := d.GetChange("default_public_ip")
+	prevDisablePassword, _ := d.GetChange("disable_password")
+	prevEnableBitninja, _ := d.GetChange("enable_bitninja")
+	prevIsIpv6Availed, _ := d.GetChange("is_ipv6_availed")
+	prevIsSavedImage, _ := d.GetChange("is_saved_image")
+	prevReserveIp, _ := d.GetChange("reserve_ip")
+	prevSavedImageTemplateId, _ := d.GetChange("saved_image_template_id")
+	prevSshKey, _ := d.GetChange("ssh_keys")
+	prevVpcId, _ := d.GetChange("vpc_id")
+	prevBlockStorageIds, _ := d.GetChange("block_storage_ids")
+	prevSecurityGroupIds, _ := d.GetChange("security_groups_ids")
+	prevLockNode, _ := d.GetChange("lock_node")
+	prevPowerStatus, _ := d.GetChange("power_status")
+	prevRebootNode, _ := d.GetChange("reboot_node")
+	prevReinstallNode, _ := d.GetChange("reinstall_node")
+
+	d.Set("image", prevImage)
+	d.Set("name", prevName)
+	d.Set("plan", prevPlan)
+	d.Set("location", prevLocation)
+	d.Set("project_id", prevProjectId)
+	d.Set("region", prevRegion)
+	d.Set("label", prevLabel)
+	d.Set("backup", prevBackup)
+	d.Set("default_public_ip", prevDefaultPublicIp)
+	d.Set("disable_password", prevDisablePassword)
+	d.Set("enable_bitninja", prevEnableBitninja)
+	d.Set("is_ipv6_availed", prevIsIpv6Availed)
+	d.Set("is_saved_image", prevIsSavedImage)
+	d.Set("reserve_ip", prevReserveIp)
+	d.Set("saved_image_template_id", prevSavedImageTemplateId)
+	d.Set("ssh_keys", prevSshKey)
+	d.Set("vpc_id", prevVpcId)
+	d.Set("block_storage_ids", prevBlockStorageIds)
+	d.Set("security_group_ids", prevSecurityGroupIds)
+
+	d.Set("lock_node", prevLockNode)
+	d.Set("power_status", prevPowerStatus)
+	d.Set("reboot_node", prevRebootNode)
+	d.Set("reinstall_node", prevReinstallNode)
 }

@@ -816,9 +816,9 @@ func (c *Client) GetSecurityGroupList(project_id string, location string) (map[s
 	if err != nil {
 		return nil, err
 	}
-	projectIDInt, error := strconv.Atoi(project_id)
-	if error != nil {
-		return nil, error
+	projectIDInt, err := strconv.Atoi(project_id)
+	if err != nil {
+		return nil, err
 	}
 	addParamsAndHeaders(req, c.Api_key, c.Auth_token, projectIDInt, location)
 	response, err := c.HttpClient.Do(req)
@@ -854,4 +854,37 @@ func CheckResponseCreatedStatus(response *http.Response) error {
 		return fmt.Errorf("got a non 201 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 	return nil
+}
+
+func (c *Client) CheckNodeLCMState(nodeId string, project_id string, location string) (map[string]interface{}, error) {
+	urlNode := c.Api_endpoint + "nodes/" + nodeId + "/check-lcm-state/"
+	req, err := http.NewRequest("GET", urlNode, nil)
+	if err != nil {
+		return nil, err
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	params.Add("project_id", project_id)
+	req.URL.RawQuery = params.Encode()
+	SetBasicHeaders(c.Auth_token, req)
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		log.Printf("[error]  CLIENT CheckNodeLCMState |  error = %v", err)
+		return nil, err
+	}
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	res := map[string]interface{}{}
+	err = json.Unmarshal(body, &res)
+	log.Printf("[info] CLIENT | CheckNodeLCMState | res = %+v", res)
+	if err != nil {
+		log.Printf("[ERROR] CLIENT  | CheckNodeLCMState | ERROR WHILE UNMARSHALLING")
+		return nil, err
+	}
+	return res, nil
 }
