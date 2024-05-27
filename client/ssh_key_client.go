@@ -70,10 +70,10 @@ func (c *Client) GetSshKey(label string, project_id string) (map[string]interfac
 	if err != nil {
 		return nil, err
 	}
-	// err = CheckResponseStatus(response)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return nil, err
+	}
 
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)

@@ -54,7 +54,7 @@ func dataSourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 	project_id := d.Get("project_id").(string)
 	res, err := apiClient.GetSshKey(label, project_id)
 	if err != nil {
-		return diag.Errorf("error finding ssh key with label %s", label)
+		return diag.Errorf("error finding ssh key with label %s | %+v", label, err)
 	}
 
 	data := res["data"].(map[string]interface{})
