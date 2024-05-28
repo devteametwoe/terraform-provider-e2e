@@ -216,11 +216,22 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 					Size:  currSize.(float64),
 					VM_ID: vmID.(float64),
 				}
-				log.Printf("[INFO] BlockStorage details: %+v %T", blockStorage, blockStorage.VM_ID)
+				log.Printf("[INFO] BlockStorage details for update : %+v %T", blockStorage, blockStorage.VM_ID)
+				// project_id_string := strconv.Itoa(project_id)
+				// Err := node.WaitForDesiredState(apiClient, int(blockStorage.VM_ID), project_id_string, location)
+				// if Err != nil {
+				// 	d.Set("size", prevSize)
+				// 	d.Set("name", prevName)
+				// 	return Err
+				// }
+
 				resBlockStorage, err := apiClient.UpdateBlockStorage(&blockStorage, blockStorageID, project_id, location)
 				if err != nil {
 					d.Set("size", prevSize)
 					d.Set("name", prevName)
+					if checkErrorForSpecificMessage(err, "wrong state DISK_RESIZE_POWEROFF") {
+						return diag.Errorf("%s | Currently resizing another disk on same virtual machine, Please Wait.", prevName)
+					}
 					return diag.FromErr(err)
 				}
 				log.Printf("[INFO] BLOCK STORAGE UPGRADE | RESPONSE BODY | %+v", resBlockStorage)
@@ -259,6 +270,7 @@ func resourceDeleteBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	if status == constants.BLOCK_STORAGE_STATUS["ATTACHED"] {
 		return diag.Errorf("Block Storage is attached to a node. Detach it first")
 	}
+	log.Printf("[INFO] BLOCK STORAGE DELETE STARTS")
 	err := apiClient.DeleteBlockStorage(blockStorageID, d.Get("project_id").(int), d.Get("location").(string))
 	if err != nil {
 		return diag.FromErr(err)
@@ -331,4 +343,11 @@ func rollbackChanges(d *schema.ResourceData) {
 
 	d.Set("name", prevName)
 	d.Set("size", prevSize)
+}
+
+func checkErrorForSpecificMessage(err error, message string) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), message)
 }

@@ -444,6 +444,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	apiClient := m.(*client.Client)
 
 	nodeId := d.Id()
+	vmId := d.Get("vm_id").(int)
 	project_id := d.Get("project_id").(string)
 	location := d.Get("location").(string)
 	status := d.Get("status").(string)
@@ -714,7 +715,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			}
 			CommonIDs = removeArrayElement(CommonIDs, detachingID)
 			// Wait for some time before detaching the next block storage
-			waitForDesiredState(apiClient, nodeId, project_id, location)
+			WaitForDesiredState(apiClient, vmId, project_id, location)
 			if i == len(detachingIDs)-1 {
 				break
 			}
@@ -739,7 +740,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			if i == len(attachingIDs)-1 {
 				break
 			}
-			waitForDesiredState(apiClient, nodeId, project_id, location)
+			WaitForDesiredState(apiClient, vmId, project_id, location)
 		}
 	}
 
@@ -866,19 +867,19 @@ func removeArrayElement(arr []interface{}, val interface{}) []interface{} {
 	return res
 }
 
-func waitForDesiredState(apiClient *client.Client, nodeId string, project_id string, location string) diag.Diagnostics {
+func WaitForDesiredState(apiClient *client.Client, vmId int, project_id string, location string) diag.Diagnostics {
 	for {
 		// Wait for some time before checking the status again (is Volume Detached?)
 		time.Sleep(constants.WAIT_TIMEOUT * time.Second)
 
-		response, err := apiClient.CheckNodeLCMState(nodeId, project_id, location)
+		response, err := apiClient.CheckNodeLCMState(vmId, project_id, location)
 		if err != nil {
 			log.Printf("[ERROR] Error getting lcm_state %s", err)
 			return diag.FromErr(err)
 		}
 		data := response["data"].(map[string]interface{})
 		log.Printf("[INFO] waitForDesiredState data : %+v", data)
-		if !(data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG"] || data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG_PROLOG_POWEROFF"] || data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG_EPILOG_POWEROFF"]) {
+		if !(data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG"] || data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG_PROLOG_POWEROFF"] || data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG_EPILOG_POWEROFF"] || data["lcm_state"].(string) == constants.NODE_LCM_STATE["DISK_RESIZE_POWEROFF"]) {
 			break
 		}
 	}

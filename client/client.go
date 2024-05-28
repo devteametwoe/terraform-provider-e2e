@@ -856,8 +856,9 @@ func CheckResponseCreatedStatus(response *http.Response) error {
 	return nil
 }
 
-func (c *Client) CheckNodeLCMState(nodeId string, project_id string, location string) (map[string]interface{}, error) {
-	urlNode := c.Api_endpoint + "nodes/" + nodeId + "/check-lcm-state/"
+func (c *Client) CheckNodeLCMState(vm_id int, project_id string, location string) (map[string]interface{}, error) {
+	vmIdString := strconv.Itoa(vm_id)
+	urlNode := c.Api_endpoint + "nodes/" + vmIdString + "/check-lcm-state/"
 	req, err := http.NewRequest("GET", urlNode, nil)
 	if err != nil {
 		return nil, err
