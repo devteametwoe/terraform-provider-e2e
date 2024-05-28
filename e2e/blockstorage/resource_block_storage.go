@@ -217,13 +217,6 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 					VM_ID: vmID.(float64),
 				}
 				log.Printf("[INFO] BlockStorage details for update : %+v %T", blockStorage, blockStorage.VM_ID)
-				// project_id_string := strconv.Itoa(project_id)
-				// Err := node.WaitForDesiredState(apiClient, int(blockStorage.VM_ID), project_id_string, location)
-				// if Err != nil {
-				// 	d.Set("size", prevSize)
-				// 	d.Set("name", prevName)
-				// 	return Err
-				// }
 
 				resBlockStorage, err := apiClient.UpdateBlockStorage(&blockStorage, blockStorageID, project_id, location)
 				if err != nil {
