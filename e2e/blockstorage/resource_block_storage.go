@@ -222,7 +222,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 				if err != nil {
 					d.Set("size", prevSize)
 					d.Set("name", prevName)
-					if checkErrorForSpecificMessage(err, "wrong state DISK_RESIZE_POWEROFF") {
+					if checkErrorForSpecificMessage(err, constants.NODE_LCM_STATE["DISK_RESIZE"]) || checkErrorForSpecificMessage(err, constants.NODE_LCM_STATE["DISK_RESIZE_POWEROFF"]) {
 						return diag.Errorf("%s | Currently resizing another disk on same virtual machine, Please Wait.", prevName)
 					}
 					return diag.FromErr(err)
