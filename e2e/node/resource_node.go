@@ -458,7 +458,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	if d.HasChange("name") {
 		log.Printf("[INFO] ndoeId = %v, name = %s ", d.Id(), d.Get("name").(string))
-		_, err := apiClient.UpdateNode(nodeId, "rename", d.Get("name").(string), project_id)
+		_, err := apiClient.UpdateNode(nodeId, "rename", d.Get("name").(string), project_id, location)
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -475,7 +475,10 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			return diag.Errorf("cannot change the power status as the node is locked")
 		}
 		log.Printf("[INFO] %s ", d.Get("power_status").(string))
-		apiClient.UpdateNode(nodeId, d.Get("power_status").(string), d.Get("name").(string), project_id)
+		_, err := apiClient.UpdateNode(nodeId, d.Get("power_status").(string), d.Get("name").(string), project_id, location)
+		if err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	if d.HasChange("lock_node") {
@@ -483,13 +486,13 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
 		}
 		if d.Get("lock_node").(bool) {
-			_, err := apiClient.UpdateNode(nodeId, "lock_vm", d.Get("name").(string), project_id)
+			_, err := apiClient.UpdateNode(nodeId, "lock_vm", d.Get("name").(string), project_id, location)
 			if err != nil {
 				return diag.FromErr(err)
 			}
 		}
 		if !d.Get("lock_node").(bool) {
-			_, err := apiClient.UpdateNode(nodeId, "unlock_vm", d.Get("name").(string), project_id)
+			_, err := apiClient.UpdateNode(nodeId, "unlock_vm", d.Get("name").(string), project_id, location)
 			if err != nil {
 				return diag.FromErr(err)
 			}
@@ -506,7 +509,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			if d.Get("status").(string) == constants.NODE_STATUS["POWERED_OFF"] {
 				return diag.Errorf("cannot reboot as the node is powered off")
 			}
-			_, err := apiClient.UpdateNode(nodeId, "reboot", d.Get("name").(string), project_id)
+			_, err := apiClient.UpdateNode(nodeId, "reboot", d.Get("name").(string), project_id, location)
 			if err != nil {
 				return diag.FromErr(err)
 			}
@@ -528,7 +531,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 				d.Set("reinstall_node", false)
 				return diag.Errorf("Node already in Reinstalling state")
 			}
-			_, err := apiClient.UpdateNode(nodeId, "reinstall", d.Get("name").(string), project_id)
+			_, err := apiClient.UpdateNode(nodeId, "reinstall", d.Get("name").(string), project_id, location)
 			d.Set("reinstall_node", false)
 			if err != nil {
 				return diag.FromErr(err)
@@ -543,7 +546,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 				return diag.Errorf("save_image_name empty")
 			}
 
-			_, err := apiClient.UpdateNode(nodeId, "save_images", d.Get("save_image_name").(string), project_id)
+			_, err := apiClient.UpdateNode(nodeId, "save_images", d.Get("save_image_name").(string), project_id, location)
 			if err != nil {
 				return diag.FromErr(err)
 			}
@@ -613,7 +616,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	if d.HasChange("label") {
 		log.Printf("[INFO] nodeId = %v changed label = %s ", d.Id(), d.Get("label").(string))
-		_, err = apiClient.UpdateNode(nodeId, "label_rename", d.Get("label").(string), project_id)
+		_, err = apiClient.UpdateNode(nodeId, "label_rename", d.Get("label").(string), project_id, location)
 		if err != nil {
 			return diag.FromErr(err)
 		}

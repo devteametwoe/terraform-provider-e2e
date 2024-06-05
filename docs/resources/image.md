@@ -18,6 +18,7 @@ This resource allows you to manage images on your e2e clusters. When applied, a 
 	name     =   "demo_image"
     node_id  =   e2e_node.node1.id
     project_id = <project_id:string>
+    location = <location:string> # must be same as corresponding node location
  }
 ```
 ## Schema
@@ -27,7 +28,7 @@ This resource allows you to manage images on your e2e clusters. When applied, a 
 - `node_id` : (Required)(String) Id of the node you want to create image of
 - `name` : (Required)(String) The name of the image.
 - `project_id` : (Required)(String) project id associated to the node.
-
+- `location` : (Required)(String) location of the image (Must be same as corresponding node location)
 
 ### Attribute Reference  (read only)
 

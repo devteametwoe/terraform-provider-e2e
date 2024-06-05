@@ -20,6 +20,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceImage() *schema.Resource {
@@ -31,6 +32,16 @@ func ResourceImage() *schema.Resource {
 				Required:     true,
 				Description:  "The name of the resource, also acts as it's unique ID",
 				ValidateFunc: validateName,
+			},
+			"location": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "location of the image",
+				ValidateFunc: validation.StringInSlice([]string{
+					"Delhi",
+					"Mumbai",
+					"Delhi-NCR-2",
+				}, false),
 			},
 			"name": {
 				Type:        schema.TypeString,
@@ -108,7 +119,7 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 
 	log.Printf("[INFO] IMAGE CREATE")
 
-	resImage, err := apiClient.UpdateNode(d.Get("node_id").(string), "save_images", d.Get("name").(string), d.Get("project_id").(string))
+	resImage, err := apiClient.UpdateNode(d.Get("node_id").(string), "save_images", d.Get("name").(string), d.Get("project_id").(string), d.Get("location").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}

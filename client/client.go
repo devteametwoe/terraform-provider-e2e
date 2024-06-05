@@ -166,7 +166,7 @@ func (c *Client) GetNodes(location string, project_id string) (*models.ResponseN
 	return &res, nil
 }
 
-func (c *Client) UpdateNode(nodeId string, action string, Name string, project_id string) (interface{}, error) {
+func (c *Client) UpdateNode(nodeId string, action string, Name string, project_id string, location string) (interface{}, error) {
 
 	node_action := models.NodeAction{
 		Type: action,
@@ -182,6 +182,7 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string, project_i
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
 	params.Add("project_id", project_id)
+	params.Add("location", location)
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
@@ -189,16 +190,16 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string, project_i
 	response, err := c.HttpClient.Do(req)
 
 	if err != nil {
-
 		return nil, err
 	}
-	log.Printf("[INFO] inside update %s %d", action, response.StatusCode)
+	log.Printf("[INFO] INSIDE NODE UPDATE %s %+v %+v", action, req, response)
 	if response.StatusCode != http.StatusOK {
 		respBody := new(bytes.Buffer)
 		_, err := respBody.ReadFrom(response.Body)
 		if err != nil {
 			return nil, fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
 		}
+		log.Printf("[INFO] INSIDE NODE UPDATE WRONG_STATUS %s %+v", action, respBody.String())
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 	defer response.Body.Close()
