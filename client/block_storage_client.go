@@ -104,6 +104,7 @@ func (c *Client) DeleteBlockStorage(blockStorageID string, project_id int, locat
 	if err != nil {
 		return err
 	}
+	log.Printf("[INFO] CLIENT DELETE BLOCK STORAGE | after response %+v", response)
 	err = CheckResponseStatus(response)
 	if err != nil {
 		return err
