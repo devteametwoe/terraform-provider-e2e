@@ -1,6 +1,6 @@
 module github.com/e2eterraformprovider/terraform-provider-e2e
 
-go 1.18
+go 1.21.8
 
 require (
 	github.com/hashicorp/terraform-plugin-docs v0.13.0
