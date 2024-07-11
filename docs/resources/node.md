@@ -47,6 +47,7 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 - `vpc_id` : (Optional) (String) Vpc id as per requirement. Checkout vpcs_datasource for listing vpcs.
 - `block_storage_ids` : (Optional) (List of String) Specify The list of  Block storage(Volume) IDs to attach. When creating a node, only one Block Storage ID Must be present.
 - `security_group_ids ` : (Optional) (List of Integer) Specify a list of security groups IDs to attach. When creating a node, only one security group ID should be present. Otherwise, only the first one will be attached.
+- `start_script` : The script to be run at the time of node creation.
 
 ### Actions
 
