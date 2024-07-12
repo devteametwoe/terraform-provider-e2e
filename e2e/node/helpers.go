@@ -53,7 +53,9 @@ func checkBlockStorage(m interface{}, image_id, project_id string, location stri
 }
 
 func GetStartScripts(start_script string) []interface{} {
-	var startScripts []interface{}
-	startScripts = append(startScripts, start_script)
+	startScripts := make([]interface{}, 0)
+	if start_script != "" {
+		startScripts = append(startScripts, start_script)
+	}
 	return startScripts
 }
