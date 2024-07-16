@@ -92,10 +92,10 @@ func ResourceNode() *schema.Resource {
 				Description: "used when Creating node from a saved image",
 				Default:     false,
 			},
-			"start_scripts": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
+			"start_script": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "The script to be run on the node first created",
 			},
 			"reserve_ip": {
 				Type:        schema.TypeString,
@@ -341,7 +341,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		Vpc_id:            d.Get("vpc_id").(string),
 		Security_group_id: security_group,
 		SSH_keys:          d.Get("ssh_keys").([]interface{}),
-		Start_scripts:     d.Get("start_scripts").([]interface{}),
+		Start_scripts:     GetStartScripts(d.Get("start_script").(string)),
 		Image_id:          image_id,
 	}
 
@@ -454,6 +454,12 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	_, err := apiClient.GetNode(nodeId, project_id)
 	if err != nil {
 		return diag.Errorf("error finding Item with ID %s", nodeId)
+	}
+
+	if d.HasChange("start_script") {
+		start_script, _ := d.GetChange("start_script")
+		d.Set("location", start_script)
+		return diag.Errorf("start_script cannot be updated once you create the node.")
 	}
 
 	if d.HasChange("name") {

@@ -15,12 +15,13 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 ## Example Usage
 ```hcl
  resource "e2e_node" "node1" {
-	name              = "node_name"
-    location          = "Delhi"
-    plan              = "C2.12GB"
-    image             = "CentOS-7"
-    project_id        = <project_id:string>
+	name               = "node_name"
+    location           = "Delhi"
+    plan               = "C2.12GB"
+    image              = "CentOS-7"
+    project_id         = <project_id:string>
     security_group_ids = [10001, 10002, 10018] //Just an example
+    start_script       =  file("pathToTheFile") // example - file("./config/test.sh"),
  }
 ```
 ## Schema
@@ -47,6 +48,7 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 - `vpc_id` : (Optional) (String) Vpc id as per requirement. Checkout vpcs_datasource for listing vpcs.
 - `block_storage_ids` : (Optional) (List of String) Specify The list of  Block storage(Volume) IDs to attach. When creating a node, only one Block Storage ID Must be present.
 - `security_group_ids ` : (Optional) (List of Integer) Specify a list of security groups IDs to attach. When creating a node, only one security group ID should be present. Otherwise, only the first one will be attached.
+- `start_script` : (Optional) ([`file`](https://developer.hashicorp.com/terraform/language/functions/file) / [`templatefile`](https://developer.hashicorp.com/terraform/language/functions/templatefile)) The script to be run at the time of node creation.
 
 ### Actions
 
