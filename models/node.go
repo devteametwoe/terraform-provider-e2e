@@ -20,6 +20,7 @@ type NodeCreate struct {
 	SSH_keys                []interface{} `json:"ssh_keys"`
 	Start_scripts           []interface{} `json:"start_scripts"`
 	Image_id                int           `json:"image_id"`
+	Is_encrypted_vm         bool          `json:"is_encrypted_vm"`
 }
 type NodeAction struct {
 	Type string `json:"type"`

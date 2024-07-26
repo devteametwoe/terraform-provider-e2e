@@ -237,6 +237,12 @@ func ResourceNode() *schema.Resource {
 					ValidateFunc: validation.All(ValidateBlank, ValidateInteger),
 				},
 			},
+			"is_encrypted_vm": {
+			    Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "If you want your virtual machine to be encrypted at rest, you can make this field true.",
+			},
 		},
 
 		CreateContext: resourceCreateNode,
@@ -343,6 +349,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		SSH_keys:          d.Get("ssh_keys").([]interface{}),
 		Start_scripts:     GetStartScripts(d.Get("start_script").(string)),
 		Image_id:          image_id,
+		Is_encrypted_vm:   d.Get("is_encrypted_vm").(bool),
 	}
 
 	if node.Vpc_id != "" {
@@ -546,7 +553,11 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if d.HasChange("save_image") {
+	    
 		if d.Get("save_image") == true {
+            if d.Get("is_encrypted_vm").(bool){
+		      return diag.Errorf("Cannot perform Save Image Operation on an Encrypted Node.")
+		    }
 			d.Set("save_image", false)
 			if d.Get("save_image_name").(string) == "" {
 				return diag.Errorf("save_image_name empty")
@@ -662,6 +673,11 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 	if d.HasChange("plan") {
 		prevPlan, currPlan := d.GetChange("plan")
+		
+		if d.Get("is_encrypted_vm").(bool){
+		   d.Set("plan", prevPlan)
+		   return diag.Errorf("Cannot Upgrade as the node is encrypted at rest.")
+		}
 
 		if d.HasChange("power_status") {
 			waitForPoweringOffOn(m, nodeId, project_id)
@@ -750,6 +766,12 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			}
 			WaitForDesiredState(apiClient, nodeId, project_id, location)
 		}
+	}
+	
+	if d.HasChange("is_encrypted_vm") {
+	   prevValue, _ := d.GetChange("is_encrypted_vm")
+	   d.Set("is_encrypted_vm", prevValue)
+	   return diag.Errorf("cannot update the encrypted status, this can only be set at the creation of Node.")
 	}
 
 	return resourceReadNode(ctx, d, m)
