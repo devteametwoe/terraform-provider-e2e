@@ -41,7 +41,7 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"e2e_node":         node.ResourceNode(),
+			"example_node":     node.ResourceNode(),
 			"e2e_image":        image.ResourceImage(),
 			"e2e_loadbalancer": loadbalancer.ResourceLoadBalancer(),
 			"e2e_vpc":          vpc.ResouceVpc(),
@@ -53,7 +53,7 @@ func Provider() *schema.Provider {
 			"e2e_kubernetes":   kubernetes.ResourceKubernetesService(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
-			"e2e_node":            node.DataSourceNode(),
+			"example_node":        node.DataSourceNode(),
 			"e2e_images":          image.DataSourceImages(),
 			"e2e_ssh_keys":        ssh_key.DataSourceSshKeys(),
 			"e2e_ssh_key":         ssh_key.DataSourceSshKey(),
