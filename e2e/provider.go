@@ -42,7 +42,7 @@ func Provider() *schema.Provider {
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"example_node":     node.ResourceNode(),
-			"e2e_image":        image.ResourceImage(),
+			"example_image":    image.ResourceImage(),
 			"e2e_loadbalancer": loadbalancer.ResourceLoadBalancer(),
 			"e2e_vpc":          vpc.ResouceVpc(),
 			"e2e_reserved_ip":  reserve_ip.ResourceReserveIP(),
@@ -54,7 +54,7 @@ func Provider() *schema.Provider {
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"example_node":        node.DataSourceNode(),
-			"e2e_images":          image.DataSourceImages(),
+			"example_image":       image.DataSourceImages(),
 			"e2e_ssh_keys":        ssh_key.DataSourceSshKeys(),
 			"e2e_ssh_key":         ssh_key.DataSourceSshKey(),
 			"e2e_vpcs":            vpc.DataSourceVpcs(),
