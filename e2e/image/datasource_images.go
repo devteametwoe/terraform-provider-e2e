@@ -77,6 +77,10 @@ func DataSourceImages() *schema.Resource {
 							Computed:    true,
 							Description: "Current state of the image",
 						},
+						"timestamp": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
 					},
 				},
 			},
@@ -94,7 +98,7 @@ func dataSourceReadImages(ctx context.Context, d *schema.ResourceData, m interfa
 
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside images data source ")
-	Response, err := apiClient.GetSavedImages(d.Get("region").(string), d.Get("project_id").(string))
+	Response, err := apiClient.GetSavedImages(d.Get("location").(string), d.Get("project_id").(string))
 	if err != nil {
 		return diag.Errorf("error finding saved images")
 	}
