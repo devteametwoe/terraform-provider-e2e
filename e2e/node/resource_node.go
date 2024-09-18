@@ -545,6 +545,10 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 				d.Set("reinstall_node", false)
 				return diag.Errorf("Node already in Reinstalling state")
 			}
+			if d.Get("is_encrypted_vm").(bool) {
+				d.Set("reinstall_node", false)
+				return diag.Errorf("This is an encrypted node. You cannot reinstall it.")
+			}
 			_, err := apiClient.UpdateNode(nodeId, "reinstall", d.Get("name").(string), project_id, location)
 			d.Set("reinstall_node", false)
 			if err != nil {
