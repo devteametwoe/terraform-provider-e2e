@@ -332,6 +332,9 @@ func GetSlugName(ctx context.Context, d *schema.ResourceData, m interface{}) (st
 		if k8sVersion == version {
 			slugName, ok := planData["plan"].(string)
 			if ok {
+				specs := planData["specs"].(map[string]interface{})
+				sku_id := specs["id"].(string)
+				d.Set("sku_id", sku_id)
 				return slugName, nil
 			}
 		}
@@ -345,7 +348,6 @@ func CreateKubernetesObject(m interface{}, d *schema.ResourceData, slugName stri
 		return nil, diag.Errorf("Invalid type provided for client")
 	}
 	log.Printf("[INFO] KUBERNETES OBJECT CREATION STARTS")
-	d.Set("sku_id", "1178")
 	kubernetesObj := models.KubernetesCreate{
 		Name:     d.Get("name").(string),
 		Version:  d.Get("version").(string),
@@ -382,7 +384,6 @@ func resourceCreateKubernetesService(ctx context.Context, d *schema.ResourceData
 		return diags
 	}
 	log.Printf("---------KUBERNETES OBJECT CREATED---------: %+v", kubernetesObject)
-	d.Set("sku_id", "1178")
 	resKubernetes, err := apiClient.NewKubernetesService(kubernetesObject, d.Get("project_id").(int), d.Get("location").(string))
 	if err != nil {
 		return diag.FromErr(err)
