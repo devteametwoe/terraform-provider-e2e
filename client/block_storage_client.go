@@ -220,7 +220,6 @@ func addParamsAndHeaders(req *http.Request, Api_key string, Auth_token string, p
 	req.Header.Add("Authorization", "Bearer "+Auth_token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
-	req.Header.Add("x-api-key", Api_key)
 	return req
 }
 
