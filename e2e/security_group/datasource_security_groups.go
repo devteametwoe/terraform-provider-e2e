@@ -14,9 +14,9 @@ import (
 
 	// "github.com/hashicorp/terraform-plugin-log"
 	// "github.com/hashicorp/terraform-plugin-log/tflog"
-
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -27,8 +27,9 @@ func DataSourceSecurityGroups() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 
 			"security_group_list": {
-				Type:     schema.TypeList,
-				Computed: true,
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: "list of the security groups",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"id": {
@@ -42,12 +43,14 @@ func DataSourceSecurityGroups() *schema.Resource {
 							Description: "name of the security group",
 						},
 						"description": {
-							Type:     schema.TypeString,
-							Computed: true,
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "Description of the security group",
 						},
 						"is_default": {
-							Type:     schema.TypeBool,
-							Computed: true,
+							Type:        schema.TypeBool,
+							Computed:    true,
+							Description: "wheather the is default or not ",
 						},
 						"rules": {
 							Type:        schema.TypeList,
@@ -56,8 +59,9 @@ func DataSourceSecurityGroups() *schema.Resource {
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"id": {
-										Type:     schema.TypeFloat,
-										Computed: true,
+										Type:        schema.TypeFloat,
+										Computed:    true,
+										Description: "Id of the rule",
 									},
 									"network_size": {
 										Type:     schema.TypeFloat,
@@ -68,25 +72,30 @@ func DataSourceSecurityGroups() *schema.Resource {
 										Computed: true,
 									},
 									"rule_type": {
-										Type:     schema.TypeString,
-										Computed: true,
+										Type:        schema.TypeString,
+										Computed:    true,
+										Description: "Direction of the traffic flow to allow, INBOUND or OUTBOUND",
 									},
 
 									"created_at": {
-										Type:     schema.TypeString,
-										Computed: true,
+										Type:        schema.TypeString,
+										Computed:    true,
+										Description: "Creation time",
 									},
 									"updated_at": {
-										Type:     schema.TypeString,
-										Computed: true,
+										Type:        schema.TypeString,
+										Computed:    true,
+										Description: "Updation time",
 									},
 									"protocol_name": {
-										Type:     schema.TypeString,
-										Computed: true,
+										Type:        schema.TypeString,
+										Computed:    true,
+										Description: "name of the Protocol",
 									},
 									"port_range": {
-										Type:     schema.TypeString,
-										Computed: true,
+										Type:        schema.TypeString,
+										Computed:    true,
+										Description: "Comma separated list of ports and port ranges",
 									},
 									"network": {
 										Type:     schema.TypeString,
@@ -110,6 +119,21 @@ func DataSourceSecurityGroups() *schema.Resource {
 					},
 				},
 			},
+			"project_id": {
+				Type:        schema.TypeInt,
+				Required:    true,
+				Description: "ID of the project. It should be unique",
+			},
+			"location": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Location of the block storage",
+				ValidateFunc: validation.StringInSlice([]string{
+					"Delhi",
+					"Mumbai",
+				}, false),
+				Default: "Delhi",
+			},
 		},
 		ReadContext: dataSourceReadSecurityGroups,
 		Importer: &schema.ResourceImporter{
@@ -123,7 +147,7 @@ func dataSourceReadSecurityGroups(ctx context.Context, d *schema.ResourceData, m
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside images data source ")
-	Response, err := apiClient.GetSecurityGroups()
+	Response, err := apiClient.GetSecurityGroups(d.Get("project_id").(int), d.Get("location").(string))
 	if err != nil {
 		return diag.Errorf("error finding security groups")
 	}

@@ -24,14 +24,27 @@ import (
 func DataSourceVpcs() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
+			"region": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "Region should specified",
+			},
+			"project_id": {
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "ID of the project. It should be unique",
+			},
 			"vpc_list": {
-				Type:     schema.TypeList,
-				Computed: true,
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: "List of all the Vpcs. You can attach these vpcs to launch resources ",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"network_id": {
-							Type:     schema.TypeFloat,
-							Computed: true,
+							Type:        schema.TypeFloat,
+							Computed:    true,
+							Description: "The id of network",
 						},
 						"pool_size": {
 							Type:     schema.TypeFloat,
@@ -77,13 +90,23 @@ func dataSourceReadVpcs(ctx context.Context, d *schema.ResourceData, m interface
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside vpcs data source ")
-	Response, err := apiClient.GetVpcs()
-	if err != nil {
-		return diag.Errorf("error finding vpcs ")
-	}
-	d.Set("vpc_list", flattenVpcs(&Response.Data))
-	d.SetId("vpc_list")
 
+	region, okRegion := d.Get("region").(string)
+	projectID, okProjectID := d.Get("project_id").(string)
+	if !okRegion || !okProjectID {
+		return diag.Errorf("region or project_id is not set or has an unexpected type")
+	}
+	Response, err := apiClient.GetVpcs(region, projectID)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	log.Printf("[INFO] %v", Response)
+	if Response.Data != nil {
+		d.Set("vpc_list", flattenVpcs(&Response.Data))
+		d.SetId("vpc_list")
+	} else {
+		log.Printf("[ERROR] VPC list is nil in the response")
+	}
 	return diags
 }
 

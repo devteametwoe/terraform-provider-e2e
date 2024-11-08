@@ -6,8 +6,6 @@ import (
 	"log"
 	// "math"
 	// "regexp"
-
-	// "strconv"
 	//"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
@@ -25,45 +23,59 @@ func DataSourceImages() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 
+			"region": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "Mention the region of the images you want to list",
+			},
+			"project_id": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "project id associated to images",
+			},
 			"image_list": {
-				Type:     schema.TypeList,
-				Computed: true,
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: "List of all the saved images",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"template_id": &schema.Schema{
-							Type:     schema.TypeFloat,
-							Computed: true,
+						"template_id": {
+							Type:        schema.TypeFloat,
+							Computed:    true,
+							Description: "This id is used to create a node using the image",
 						},
-						// "vm_info":&schema.Schema{
-						// 	Type:schema
-						// }
-						"image_type": &schema.Schema{
+						"image_type": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "Type of the image",
+						},
+						"os_distribution": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"os_distribution": &schema.Schema{
+						"name": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "Name of the image",
+						},
+						"image_id": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "The id of the image",
+						},
+						"distro": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "type of distro used",
+						},
+						"sku_type": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"name": &schema.Schema{
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"image_id": &schema.Schema{
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"distro": &schema.Schema{
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"sku_type": &schema.Schema{
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"image_state": &schema.Schema{
-							Type:     schema.TypeString,
-							Computed: true,
+						"image_state": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "Current state of the image",
 						},
 					},
 				},
@@ -82,7 +94,7 @@ func dataSourceReadImages(ctx context.Context, d *schema.ResourceData, m interfa
 
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside images data source ")
-	Response, err := apiClient.GetSavedImages()
+	Response, err := apiClient.GetSavedImages(d.Get("region").(string), d.Get("project_id").(string))
 	if err != nil {
 		return diag.Errorf("error finding saved images")
 	}
