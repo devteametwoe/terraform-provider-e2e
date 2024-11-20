@@ -13,7 +13,7 @@ description: |-
 ```hcl
  resource "e2e_kubernetes" "kubernetes1" {
     name       = "kubernetes_cluster_v1"
-    version    = "1.25"  //Just an example
+    version    = "1.27"  //Just an example
     project_id = 30000   //Just an example
     location   = "Delhi"
     vpc_id     = "10001" //Just an example
