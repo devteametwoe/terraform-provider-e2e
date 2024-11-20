@@ -237,6 +237,12 @@ func ResourceNode() *schema.Resource {
 					ValidateFunc: validation.All(ValidateBlank, ValidateInteger),
 				},
 			},
+			"is_encrypted_vm": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "If you want your virtual machine to be encrypted at rest, you can make this field true.",
+			},
 		},
 
 		CreateContext: resourceCreateNode,
@@ -327,22 +333,24 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	node := models.NodeCreate{
-		Name:              d.Get("name").(string),
-		Label:             d.Get("label").(string),
-		Plan:              d.Get("plan").(string),
-		Backup:            d.Get("backup").(bool),
-		Image:             d.Get("image").(string),
-		Default_public_ip: d.Get("default_public_ip").(bool),
-		Disable_password:  d.Get("disable_password").(bool),
-		Enable_bitninja:   d.Get("enable_bitninja").(bool),
-		Is_ipv6_availed:   d.Get("is_ipv6_availed").(bool),
-		Is_saved_image:    d.Get("is_saved_image").(bool),
-		Reserve_ip:        d.Get("reserve_ip").(string),
-		Vpc_id:            d.Get("vpc_id").(string),
-		Security_group_id: security_group,
-		SSH_keys:          d.Get("ssh_keys").([]interface{}),
-		Start_scripts:     GetStartScripts(d.Get("start_script").(string)),
-		Image_id:          image_id,
+		Name:                    d.Get("name").(string),
+		Label:                   d.Get("label").(string),
+		Plan:                    d.Get("plan").(string),
+		Backup:                  d.Get("backup").(bool),
+		Image:                   d.Get("image").(string),
+		Default_public_ip:       d.Get("default_public_ip").(bool),
+		Disable_password:        d.Get("disable_password").(bool),
+		Enable_bitninja:         d.Get("enable_bitninja").(bool),
+		Is_ipv6_availed:         d.Get("is_ipv6_availed").(bool),
+		Is_saved_image:          d.Get("is_saved_image").(bool),
+		Reserve_ip:              d.Get("reserve_ip").(string),
+		Vpc_id:                  d.Get("vpc_id").(string),
+		Security_group_id:       security_group,
+		Saved_image_template_id: d.Get("saved_image_template_id").(int),
+		SSH_keys:                d.Get("ssh_keys").([]interface{}),
+		Start_scripts:           GetStartScripts(d.Get("start_script").(string)),
+		Image_id:                image_id,
+		Is_encrypted_vm:         d.Get("is_encrypted_vm").(bool),
 	}
 
 	if node.Vpc_id != "" {
@@ -546,7 +554,11 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if d.HasChange("save_image") {
+
 		if d.Get("save_image") == true {
+			if d.Get("is_encrypted_vm").(bool) {
+				return diag.Errorf("Cannot perform Save Image Operation on an Encrypted Node.")
+			}
 			d.Set("save_image", false)
 			if d.Get("save_image_name").(string) == "" {
 				return diag.Errorf("save_image_name empty")
@@ -663,6 +675,11 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	if d.HasChange("plan") {
 		prevPlan, currPlan := d.GetChange("plan")
 
+		if d.Get("is_encrypted_vm").(bool) {
+			d.Set("plan", prevPlan)
+			return diag.Errorf("Cannot Upgrade as the node is encrypted at rest.")
+		}
+
 		if d.HasChange("power_status") {
 			waitForPoweringOffOn(m, nodeId, project_id)
 		}
@@ -750,6 +767,12 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			}
 			WaitForDesiredState(apiClient, nodeId, project_id, location)
 		}
+	}
+
+	if d.HasChange("is_encrypted_vm") {
+		prevValue, _ := d.GetChange("is_encrypted_vm")
+		d.Set("is_encrypted_vm", prevValue)
+		return diag.Errorf("cannot update the encrypted status, this can only be set at the creation of Node.")
 	}
 
 	return resourceReadNode(ctx, d, m)

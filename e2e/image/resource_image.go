@@ -59,6 +59,11 @@ func ResourceImage() *schema.Resource {
 				Computed:    true,
 				Description: "This id is used to create a node using the image",
 			},
+			"image_id": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "This id is used to reference opennebula image.",
+			},
 			"image_state": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -127,8 +132,9 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 	if _, codeok := resImage.(map[string]interface{})["code"]; !codeok {
 		return diag.Errorf(resImage.(map[string]interface{})["message"].(string))
 	}
-
+	log.Printf("[INFO] IMAGE CREATION | RESPONSE FROM API: %+v", resImage)
 	data := resImage.(map[string]interface{})["data"].(map[string]interface{})
+	log.Printf("[INFO] IMAGE CREATION | RESPONSE FROM API: %+v", data)
 	imageId := data["id"].(float64)
 	fmt.Println(data)
 	log.Printf("[INFO] IMAGE CREATION | before setting fields")
@@ -158,12 +164,12 @@ func resourceReadImage(ctx context.Context, d *schema.ResourceData, m interface{
 	d.Set("image_state", data.Image_state)
 	d.Set("template_id", data.Template_id)
 	d.Set("image_type", data.Image_type)
+	d.Set("image_id", data.Image_id)
 	d.Set("creation_time", data.Creation_time)
 	d.Set("os_distribution", data.Os_distribution)
 	d.Set("distro", data.Distro)
 
 	return diags
-
 }
 
 func resourceUpdateImage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -187,7 +193,7 @@ func resourceDeleteImage(ctx context.Context, d *schema.ResourceData, m interfac
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 	log.Printf("[INFO] DELETE IMAGE")
-	imageId := d.Id()
+	imageId := d.Get("image_id").(string)
 
 	err := apiClient.DeleteImage(imageId, d.Get("project_id").(string))
 	if err != nil {
